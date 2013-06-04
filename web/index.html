@@ -1,0 +1,645 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head>
+    <meta charset="utf-8">
+    <title>EasyWallet - JavaScript Client-Side Bitcoin Wallet</title> 
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="bitcoin address generator" name="description">
+    <meta content="easywallet" name="author">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/default.css" rel="stylesheet">
+    <link href="css/bootstrap-responsive.css" rel="stylesheet">
+
+<!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link href="favicon.ico" rel="shortcut icon">
+</head>
+<body>
+<div class="navbar navbar-fixed-top"> 
+    <div class="navbar-inner"> 
+        <div class="container"> 
+            <a class="btn btn-navbar" data-target=".nav-collapse" data-toggle="collapse"> 
+            <span class="icon-bar"></span> <span class="icon-bar"></span> 
+            <span class="icon-bar"></span> </a> <a class="brand" href="/">EasyWallet <font size=2><!-- for Bitcoin --></font></a> 
+            <div class="nav-collapse"> 
+                <ul class="nav">
+                    <li class="active"><a data-toggle="tab" href="#home" id="tab-home" onclick="$('.btn-navbar').click()">Wallet</a></li> 
+<!--
+                    <li><a data-toggle="tab" href="#buy" onclick="$('.btn-navbar').click()">Buy</a></li> 
+                    <li><a data-toggle="tab" href="#spend" onclick="$('.btn-navbar').click()">Spend</a></li> 
+                    <li><a data-toggle="tab" href="#trade" onclick="$('.btn-navbar').click()">Trade</a></li> 
+-->
+                    <li><a data-toggle="tab" href="#advanced" onclick="$('.btn-navbar').click()">Advanced</a></li> 
+                    <li><a data-toggle="tab" href="#debug" onclick="$('.btn-navbar').click()">Backstage</a></li> 
+                    <li><a data-toggle="tab" href="#settings" onclick="$('.btn-navbar').click()" id='settingsLink'>Settings</a></li> 
+                    <li><a href="" target="_blank" onclick="$('.btn-navbar').click()">New</a>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal for QR Code -->
+<div id="qrcodeModal" class="modal hide" tabindex="-1" role="dialog" aria-labelledby="qrcodeModalLabel" aria-hidden="true">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
+        <h3 id="qrcodeModalLabel">QR Code</h3>
+    </div>
+    <div class="modal-body">
+        <span id="qrcodeImage"></span><br><br>
+        <span id="qrcodeText"></span>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-primary" data-dismiss="modal" aria-hidden="true">Close</button>
+    </div>
+</div>
+<div class="container"> 
+    <div class="tab-content"> 
+
+<!-- Home -->
+        <div class="tab-pane fade in active" id="home"> 
+            <form action="/" class="form-horizontal" method="get" id="homeOpenForm">
+            <fieldset> <legend>Wallet</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="homeEmail">*Email</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeEmail" type="text" placeholder="Capitalization and spaces do NOT matter."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeWalletName">*Wallet Name</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeWalletName" type="text" placeholder="Capitalization and extra spaces do NOT matter."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeWalletPassword">*Wallet Password</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeWalletPassword" type="password" placeholder="Capitalization and spaces DO matter."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSessionPin">Session Pin</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeSessionPin" type="password" placeholder="Will be required when sending funds, if provided."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeOpenWallet"></label> 
+                    <div class="controls"> 
+                        Do not forget the Email, Wallet Name and Wallet Password. You will lose access to your wallet if you forget any of these.<br>
+                        <button class="btn" id="homeOpenWallet" type="button">Open Wallet</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Balance -->
+            <form action="/" class="form-horizontal hide" method="get" id="homeMainForm">
+            <fieldset> <legend>Balance</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSend"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="homeSendBtn" type="button">Send</button> 
+                        <button class="btn" id="homeReceiveBtn" type="button">Receive</button> 
+                        <button class="btn" id="homeRedeemBtn" type="button">Redeem</button> 
+                        <button class="btn" id="homeRecoverBtn" type="button">Recover</button> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeBalance">Balance</label> 
+                    <div class="controls"> 
+                        <label class="span5" for="homeBalanceLabel" id="homeBalanceLabel"></label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeBalance"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="homeReloadBalBtn" title="Reload the current balance from the network." type="button"><i class="icon-repeat"></i></button> 
+                        <button class="btn" id="homeCloseBtn" type="button" title="Close wallet.">Close</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Send -->
+            <form action="/" class="form-horizontal hide" method="get" id="homeSendForm">
+            <fieldset> <legend>Send</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendBalanceBefore">Balance Before</label> 
+                    <div class="controls"> 
+                        <label class="span5" for="homeSendBalanceBefore" id="homeSendBalanceBefore"></label> 
+                    </div>
+                </div>
+<!--
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendFrom">From Address</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeSendFrom"> 
+                    </div>
+                </div>
+-->
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendBy">Send By</label> 
+                    <div class="controls"> 
+                        <div class="btn-group" data-toggle="buttons-radio" id="homeSendBy"> 
+                            <button class="btn active" id="homeSendByAddressBtn" type="button">Address</button> 
+                            <button class="btn" id="homeSendByEmailBtn" type="button">Email</button> 
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group" id="homeSendToDiv"> 
+                    <label class="control-label" for="homeSendTo">*To Address</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeSendTo" title="Enter or scan the bitcoin address of the recipient." > 
+                        <br>
+                        <button class="btn" id="homeScanBtn" type="button">Scan</button> 
+                    </div>
+                </div>
+                <div class="control-group hide" id="homeSendFromEmailDiv"> 
+                    <label class="control-label" for="homeSendToEmail">*From Email</label>
+                    <div class="controls"> 
+                        <span class="span5" id="homeSendFromEmail" title="Email address of the sender." ></span>
+                    </div>
+                </div>
+                <div class="control-group hide" id="homeSendToEmailDiv"> 
+                    <label class="control-label" for="homeSendToEmail">*To Email</label>
+                    <div class="controls"> 
+                        <input class="span5" id="homeSendToEmail" title="Enter the email address of the recipient." > 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendAmount">*Amount</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeSendAmount" title="Enter amount to send."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendFee">Fee</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeSendFee" title="To speed up the transaction, include a small fee."> 
+                    </div>
+                </div>
+                <div class="control-group hide" id="homeSendMessageDiv"> 
+                    <label class="control-label" for="homeSendMessage">Message</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeSendMessage" title="Enter a message so the recipient knows what this payment is for. Mention such things as the account number, invoice number or other information related to this payment." > 
+                    </div>
+                </div>
+                <div class="control-group hide" id="homeSendPasswordDiv"> 
+                    <label class="control-label" for="homeSendPassword">Password</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeSendPassword" title="Include a password which you will tell the recipient vai phone. Recommended for large transactions."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendBalanceAfter">Balance After</label> 
+                    <div class="controls"> 
+                        <label class="control-label" for="homeSendBalanceAfter" id="homeSendBalanceAfter"></label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSend"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="homeSendCancelBtn" type="button">Cancel</button> 
+                        <button class="btn" id="homeSendSendBtn" type="button">Send It</button> 
+<!--
+                        <button class="btn" id="homeSendShowBtn" type="button">Show It</button> 
+-->
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Send Code -->
+            <form action="/" class="form-horizontal hide" method="get" id="homeSendCodeForm">
+            <fieldset> <legend>Send</legend>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendCode">Send Code</label> 
+                    <div class="controls"> 
+                        <textarea class="span5" id="homeSendCode" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label"></label> 
+                    <div class="controls">
+                        <span class="span4" align="justify">Copy and email the above code to send the bitcoins. Be sure to send a copy of the code to yourself, in case the bitcoins are not redeemed and you need to recover them. Do not leave this page or lose the code until you have saved the code. A copy of the code can also be found under the Backstage tab.</span>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeSendCodeDoneBtn"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="homeSendCodeDoneBtn" type="button">Done</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Receive -->
+            <form action="/" class="form-horizontal hide" method="get" id="homeReceiveForm">
+            <fieldset> <legend>Receive</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="homeReceiveAddresses">Addresses</label> 
+                    <div class="controls"> 
+                        <label class="control-label" for="homeReceiveAddresses" id="homeReceiveAddresses">...</label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeReceiveBalance">Balance</label> 
+                    <div class="controls"> 
+                        <label class="span5" for="homeReceiveBalance" id="homeReceiveBalance"></label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeReceiveBack"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="homeReceiveBackBtn" type="button">Back</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Redeem -->
+            <form action="/" class="form-horizontal hide" method="get" id="homeRedeemForm">
+            <fieldset> <legend>Redeem</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRedeemCode">*Code</label> 
+                    <div class="controls"> 
+                        <textarea class="span5" id="homeRedeemCode" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRedeemPassword">Password</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeRedeemPassword" title="If the sender provided a password enter it here."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRedeemFee">Fee</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeRedeemFee" title="To speed up the transaction, include a small fee."> 
+                    </div>
+                </div>
+                <div class="control-group hide" id="homeRedeemInfoDiv"> 
+                    <label class="control-label" for="homeRedeemInfo">Info</label> 
+                    <div> 
+                        <label class="span5" for="homeRedeemInfo" id="homeRedeemInfo"></label>
+                    </div>
+                </div>
+                <div class="control-group hide" id="homeRedeemBalanceDiv"> 
+                    <label class="control-label" for="homeRedeemBalance">Balance</label> 
+                    <div> 
+                        <label class="span5" for="homeRedeemBalance" id="homeRedeemBalance"></label>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRedeemNowBtn"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="homeRedeemCancelBtn" type="button">Cancel</button> 
+                        <button class="btn" id="homeRedeemNowBtn" type="button">Redeem</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Recover -->
+            <form action="/" class="form-horizontal hide" method="get" id="homeRecoverForm">
+            <fieldset> <legend>Recover</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRecoverEmail">* To Email</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeRecoverEmail" title="Enter the email address of the recipient."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRecoverCode">* Code</label> 
+                    <div class="controls"> 
+                        <textarea class="span5" id="homeRecoverCode" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRecoverFee">Fee</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="homeRecoverFee" title="To speed up the transaction, include a small fee."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="homeRecoverBtn"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="homeRecoverCancelBtn" type="button">Cancel</button> 
+                        <button class="btn" id="homeRecoverBtn" type="button">Recover</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+        </div>
+
+<!-- Buy -->
+        <div class="tab-pane fade" id="buy"> 
+            <fieldset> <legend>Buy</legend> 
+              <div id="buyPage">
+                You can pay cash at a local store and have bitcoins sent right to your wallet. Payment centers include banks, post offices, grocery stores, kiosks, convenience stores, cyber cafes and more.
+<p>
+<ul>
+<li><a href="https://www.bitinstant.com/" target='_blank'>BitInstant</a>
+</ul>
+              </div>
+            </fieldset>
+        </div>
+
+<!-- Spend -->
+        <div class="tab-pane fade" id="spend"> 
+            <fieldset> <legend>Spend</legend> 
+              <div id="spendPage">
+                You can send bitcoins and have funds deposited to your debit card checking account. You can then spend bitcoins where ever credit cards are accepted.
+<p>
+<ul>
+<li><a href="https://www.bitpay.com/" target='_blank'>BitPay</a>
+<li><a href="https://http://www.bitcoinmoney.com/post/6672058553/amex-reloadable-debit-card" target='_blank'>AmEx Debit Card</a>
+</ul>
+              </div>
+            </fieldset>
+        </div>
+
+
+<!-- Trade -->
+        <div class="tab-pane fade" id="trade"> 
+            <fieldset> <legend>Trade</legend> 
+              <div id="tradePage">
+                You can trade bitcoins for other currencies.<br>
+<p>
+<ul>
+<li><a href="http://bitcoincharts.com/charts/" target='_blank'>Bitcoin Charts</a>
+</ul>
+              </div>
+            </fieldset>
+        </div>
+
+<!-- Advanced -->
+        <div class="tab-pane fade" id="advanced"> 
+            <form action="/" class="form-horizontal" method="get" id="advancedOpenForm">
+            <fieldset> <legend>Advanced Wallet</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedWalletType">Wallet Type</label> 
+                    <div class="controls"> 
+                        <div class="btn-group" data-toggle="buttons-radio" id="advancedWalletType"> 
+                            <button class="btn active" id="advancedEasyBtn" type="button">Easy</button> 
+                            <button class="btn" id="advancedArmoryBtn" type="button">Armory</button> 
+                            <button class="btn" id="advancedElectrumBtn" type="button">Electrum</button> 
+                            <button class="btn" id="advancedKeysBtn" type="button">Keys</button> 
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group" id="advancedEmailDiv"> 
+                    <label class="control-label" for="advancedEmail">*Email</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="advancedEmail" type="text" title="Your email address."> 
+                    </div>
+                </div>
+                <div class="control-group" id="advancedWalletNameDiv"> 
+                    <label class="control-label" for="advancedWalletName">*Wallet Name</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="advancedWalletName" type="text" title="A name for the wallet."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSecret" id="advancedSecretLabel">*Wallet Passphrase</label> 
+                    <div class="controls"> 
+                        <textarea class="span5" title="Copy and paste some sentences from a book; then insert a few of your own words in the sentece. Be alone when entering this. Capitalization and extra spaces do NOT matter." id="advancedSecret" rows="6"></textarea>
+                    </div>
+                </div>
+                <div class="control-group" id="advancedRangeDiv"> 
+                    <label class="control-label" for="advancedRange">Range</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="advancedRange" type="text" value="10" title="Number of addresses in the wallet. Default is 10."> 
+                    </div>
+                </div>
+                <div class="control-group" id="advancedDecryptDiv"> 
+                    <label class="control-label" for="advancedDecrypt">Decryption Password</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="advancedDecrypt" type="password" title="If keys are encrypted, enter the password to decrypt them."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSessionPin">Session Pin</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="advancedSessionPin" type="password" title="You will be asked to enter this again to send funds."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedOpenWallet"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="advancedOpenWallet" type="button">Open Wallet</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Options -->
+            <form action="/" class="form-horizontal hide" method="get" id="advancedMainForm">
+            <fieldset> <legend>Advanced Wallet</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSend"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="advancedSendBtn" type="button">Send</button> 
+                        <button class="btn" id="advancedReceiveBtn" type="button">Receive</button> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedBalance">Balance</label> 
+                    <div class="controls"> 
+                        <label class="span5" for="advancediveBalanceLabel" id="advancedBalanceLabel"></label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedBalance"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="advancedReloadBalBtn" title="Reload" type="button"><i class="icon-repeat"></i></button> 
+                        <button class="btn" id="advancedCloseBtn" type="button">Close</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Send -->
+            <form action="/" class="form-horizontal hide" method="get" id="advancedSendForm">
+            <fieldset> <legend>Send</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSendBalanceBefore">Balance Before</label> 
+                    <div class="controls"> 
+                        <label class="control-label" for="advancedSendBalanceBefore" id="advancedSendBalanceBefore"></label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSendFrom">From Address</label> 
+                    <div class="controls"> 
+                        <textarea class="span5" title="Enter zero or more addresses seperated by whitespace. Unspent funds from these addresses will be used first." id="advancedSendFrom" rows="6"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSendTo">To Address Amount</label> 
+                    <div class="controls"> 
+                        <textarea class="span5" title="Enter one or more whitespace seperated pairs of address and amount seperated by whitespace. Like: adr1 btc1 adr2 btc2" id="advancedSendTo" rows="6"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedChangeAddress">Change Address</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="advancedChangeAddress" title="Enter the address of where to send any remaining change. If not given change will be sent to any source address."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSendFee">Fee</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="advancedSendFee"> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSendBalanceAfter">Balance After</label> 
+                    <div class="controls"> 
+                        <label class="control-label" for="advancedSendBalanceAfter" id="advancedSendBalanceAfter"></label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedSend"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="advancedSendCancelBtn" type="button">Cancel</button> 
+                        <button class="btn" id="advancedSendSendBtn" type="button">Send It</button> 
+                        <button class="btn" id="advancedSendSaveBtn" type="button">Save It</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+    <!-- Receive -->
+            <form action="/" class="form-horizontal hide" method="get" id="advancedReceiveForm">
+            <fieldset> <legend>Receive</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedReceiveAddresses">Addresses</label> 
+                    <div class="controls"> 
+                        <label class="control-label" for="advancedReceiveAddresses" id="advancedReceiveAddresses">...</label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedReceiveBalance">Balance</label> 
+                    <div class="controls"> 
+<!--
+                        <label class="control-label span5" for="advancedReceiveBalance" id="advancedReceiveBalance"></label> &nbsp; &nbsp; 
+-->
+                        <label class="span5" for="advancedReceiveBalance" id="advancedReceiveBalance"></label> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="advancedReceiveBack"></label> 
+                    <div class="controls"> 
+                        <button class="btn" id="advancedReceiveBackBtn" type="button">Back</button> 
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+        </div>
+
+<!-- Debug -->
+        <div class="tab-pane fade" id="debug"> 
+            <form action="/" class="form-horizontal" method="get" id="debugForm">
+            <fieldset> <legend>Backstage</legend> 
+                <div class="control-group"> 
+                    <label class="control-label" for="debugHexTransaction">Hex Transaction</label> 
+                    <div class="controls"> 
+                        <textarea class="span8" id="debugHexTransaction" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="debugTransaction">Transaction</label> 
+                    <div class="controls"> 
+                        <textarea class="span8" id="debugTransaction" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="debugUnspent">Unspent</label> 
+                    <div class="controls"> 
+                        <textarea class="span8" id="debugUnspent" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="debugSendResult">Send Result</label> 
+                    <div class="controls"> 
+                        <textarea class="span8" id="debugSendResult" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="debugSendCode">Send Code</label> 
+                    <div class="controls"> 
+                        <textarea class="span8" id="debugSendCode" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="debugKeys">Private Keys</label> 
+                    <div class="controls"> 
+                        <input type=checkbox id="debugShowKeys"> Show
+                        <br>
+                        <textarea class="span8 hide" id="debugKeys" rows="10"></textarea>
+                    </div>
+                </div>
+
+
+            </fieldset>
+            </form>
+        </div>
+
+<!-- Settings -->
+        <div class="tab-pane fade" id="settings"> 
+            <form action="/" class="form-horizontal" method="get" id="settingsForm">
+            <fieldset> <legend>Settings</legend> 
+                <div class="control-group" id="settingsPasswordDiv"> 
+                    <label class="control-label" for="settingsPasswordDiv">*Password</label> 
+                    <div class="controls"> 
+                        <input class="span5" id="settingsPassword" type="password" title="Password to change settings. Edit the password file to set the password."> 
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="settingsSend">Send Transaction Via</label> 
+                    <div class="controls"> 
+                        <div class="btn-group" data-toggle="buttons-radio" id="settingsSend"> 
+                            <button class="btn" id="settingsSendBtn_electrum" type="button">Electrum</button> 
+                            <button class="btn active" id="settingsSendBtn_blockchain" type="button">BlockChain</button> 
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="settingsUnspent">Get Unspent Via</label> 
+                    <div class="controls"> 
+                        <div class="btn-group" data-toggle="buttons-radio" id="settingsUnspent"> 
+                            <button class="btn" id="settingsUnspentBtn_electrum" type="button">Electrum</button> 
+                            <button class="btn active" id="settingsUnspentBtn_blockchain" type="button">BlockChain</button> 
+                            <button class="btn" id="settingsUnspentBtn_blockexplorer" type="button">BlockExplorer</button> 
+                        </div>
+                    </div>
+                </div>
+<!--
+                <div class="control-group"> 
+                    <label class="control-label" for="settingsElectrumServer">Electrum Server</label> 
+                    <div class="controls"> <p>
+                        <input class="span5" id="settingsElectrumServer" > 
+                        <br><small>Used only if Electrum is selected.</small> </p>
+                    </div>
+                </div>
+-->
+            </fieldset>
+            </form>
+        </div>
+
+        <hr /> 
+    </div>
+    <FOOTER> 
+
+    <p>EasyWallet
+    <span class="pull-right"><small>The easier and safer way to store your coins.
+    </small></span></p> 
+    </FOOTER> 
+</div>
+<script src="js/jquery-1.7.2.min.js"></script> 
+<script src="js/jquery.qrcode.min.js"></script> 
+<script src="js/bootstrap.min.js"></script> 
+<script src="js/bitcoinjs-min.js"></script> 
+<script src="js/rfc1751.js"></script> 
+<script src="js/mnemonic.js"></script> 
+<script src="js/armory.js"></script> 
+<script src="js/electrum.js"></script> 
+<script src="js/tx.js"></script> 
+<script src="js/aes.js"></script> 
+<script src="js/bitcoinsig.js"></script> 
+<script src="js/easywallet.js"></script> 
+</body>
+</html> 

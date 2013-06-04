@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+# reads JSON and outputs JSON
+# given a transaction, send it to the bitcoin network
+
+# Using electrum to send the transaction
+
+import sys
+import os
+import json
+
+sys.path.append( "cgi-bin/electrum" )
+sys.path.append( "cgi-bin/electrum/lib" )
+from lib import *
+
+print "Content-type: text/plain\n\n";
+
+conlen = int(os.environ.get('CONTENT_LENGTH', 5000))
+if conlen>100000: conlen = 100000
+rawinp = sys.stdin.read(conlen)
+
+if rawinp == '':
+  res = {}
+  res['status'] = 'Error'
+  res['error'] = 'No input given.'+str(conlen)
+  print json.dumps(res)
+  sys.exit()  
+txs = json.loads(rawinp)
+
+tx = txs.get('tx', '')
+if tx == '' :
+  res = {}
+  res['status'] = 'Error'
+  res['error'] = 'No transaction given.'
+  print json.dumps(res)
+  sys.exit()
+  
+if len(tx) < 50:
+  res = {'status':'Error', 'error':'Transaction too short.'}
+  print json.dumps(res)
+  sys.exit()
+
+try:
+  tx_hash = bitcoin.Hash(tx.decode('hex') )[::-1].encode('hex')
+except Exception:
+  res = {'status':'Error', 'error':'Transaction not in hex format.'}
+  print json.dumps(res)
+  sys.exit()
+
+# TODO - pick a server to connect to from a saved list and make sure it is up
+
+config_options = {'server':'electrum.be:50001:t','wallet_path':'', 'blockchain_headers_path':'', 'gui':''}
+config = SimpleConfig(config_options)
+wallet = Wallet(config)
+interface = Interface(config, True)
+interface.start()
+wallet.interface = interface
+synchronizer = WalletSynchronizer(wallet, config)
+synchronizer.start()
+
+ob, output = wallet.sendtx(tx)
+interface.stop()
+
+if ob: res = {'status':'OK', 'message':output}
+else: res = {'status':'Error', 'error':output}
+print json.dumps(res)
+  
+  
+  

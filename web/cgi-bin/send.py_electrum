@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+
+# reads JSON and outputs JSON
+# given a transaction, send it to the bitcoin network
+
+# Using electrum to send the transaction
+
+
+import sys
+import os
+import json
+import re
+from subprocess import Popen, PIPE, STDOUT
+
+def readConf():
+  c = open('cgi-bin/config.json', 'r').read()
+  o = json.loads(c)
+  return o
+
+print "Content-type: text/plain\n"
+
+
+
+#res = {'status':'OK', 'tid':'abc '+str(conlen)+' '+rawinp}
+#res = {'status':'OK', 'tid':'abc '+tx}; print json.dumps(res); sys.exit()
+
+
+# read the transaction
+conlen = int(os.environ.get('CONTENT_LENGTH', 0))
+rawinp = sys.stdin.read(conlen)
+#rawinp = sys.stdin.read()
+
+if rawinp == '':
+  res = {}
+  res['status'] = 'Error'
+  res['error'] = 'No input given.'+str(conlen)
+  print json.dumps(res)
+  sys.exit()  
+txs = json.loads(rawinp)
+
+tx = txs.get('tx', '')
+if tx == '' :
+  res = {}
+  res['status'] = 'Error'
+  res['error'] = 'No transaction given.'
+  print json.dumps(res)
+  sys.exit()
+  
+if len(tx) < 50:
+  res = {'status':'Error', 'error':'Transaction too short.'}
+  print json.dumps(res)
+  sys.exit()
+
+conf = readConf()
+server = conf.get('electrumserver', 'electrum.bysh.me')
+
+# Now send the transaction
+os.chdir('cgi-bin/electrum')
+pyt = sys.executable
+cmd = pyt+' electrum -w electrum.dat -s '+server+':50001:t sendtx '+tx
+
+#res = {'status':'OK', 'tid':'abc '+cmd}; print json.dumps(res); sys.exit()
+
+p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+output = p.stdout.read()
+if re.search(r'error', output, re.I):
+  res = {'status':'Error', 'error':output}
+else:
+#print output
+  res = {'status':'OK', 'message':output}
+print json.dumps(res)
+

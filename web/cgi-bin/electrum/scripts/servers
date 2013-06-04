@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+from electrum import Interface, DEFAULT_SERVERS
+import time, Queue
+
+servers = DEFAULT_SERVERS
+interfaces = map ( lambda server: Interface({'server':server} ), servers )
+for i in interfaces: i.start()
+
+for i in interfaces:
+    if i.is_connected:
+        i.send([('blockchain.numblocks.subscribe',[])])
+        i.status = "timed out"
+    else:
+        servers.remove(i.server)
+        i.status = "unreachable"
+
+for i in interfaces:
+    while True:
+        try:
+            r = i.get_response(timeout=1)
+        except Queue.Empty:
+            break
+
+        if r.get('method') == 'blockchain.numblocks.subscribe':
+            servers.remove(i.server)
+            i.status = "ok"
+            i.blocks = r.get('result')
+            break
+
+
+from collections import defaultdict
+d = defaultdict(int)
+for i in interfaces:
+    if i.status == 'ok':
+        d[i.blocks] += 1
+v = d.values()
+numblocks = d.keys()[v.index(max(v))]
+
+for i in interfaces:
+    if i.status == 'ok':
+        if abs(i.blocks-numblocks)>1: i.status = "lagging" 
+    else:
+        i.blocks = 0
+    print "%30s   %d   %s   "%(i.host, i.blocks, i.status)
+

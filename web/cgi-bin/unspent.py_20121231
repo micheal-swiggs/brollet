@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import json
+
+sys.path.append( "cgi-bin/electrum" )
+sys.path.append( "cgi-bin/electrum/lib" )
+from lib import *
+
+print "Content-type: text/plain\n\n";
+
+conlen = int(os.environ.get('CONTENT_LENGTH', 5000))
+if conlen>100000: conlen = 100000
+rawinp = sys.stdin.read(conlen)
+
+#      expecting myaddr to be in JSON like ["address1", "address2", ...]
+myaddr = json.loads(rawinp)
+
+# TODO check the given addresses
+
+# TODO pick a server and make sure it is up and running
+
+config_options = {'server':'electrum.be:50001:t','wallet_path':"", 'blockchain_headers_path':'', 'gui':''}
+config = SimpleConfig(config_options)
+wallet = Wallet(config)
+interface = Interface(config, True)
+interface.start()
+wallet.interface = interface
+synchronizer = WalletSynchronizer(wallet, config)
+synchronizer.start()
+
+# TODO - The electrum server should provided a 'get_unspent' call and do this on the server side
+
+# TODO - get the current block number, so we can also compute the number of confirmations
+
+trans = {}
+res = []
+for addr in myaddr:
+# TODO make sure it's a valid address
+    h = interface.synchronous_get([ ('blockchain.address.get_history',[addr]) ])[0]
+    for item in h:
+        tx_hash = item['tx_hash']
+        tx_height = item['height']
+        t = interface.synchronous_get([ ('blockchain.transaction.get',[tx_hash, tx_height]) ])[0]
+        d = synchronizer.deserialize_tx(tx_hash, tx_height, t)
+#        r = json.loads(d)
+        res.append(d)
+interface.stop()
+
+for r in res:
+    txh = r['tx_hash']
+    block = r['height']
+    if r.get('outputs', ''):  # we have to use the get() method to avoid KeyError exception
+        n = 0
+        for i in r['outputs']:
+            if i.get('address','') in myaddr:
+                hash = txh
+                tr = hash+' '+str(n)
+                spent = trans.get(tr, '')
+                val = float(i['value'])/100000000.0
+                if spent == '':
+                    trans[tr] = {'address': i['address'], 'value': val, 'scriptHex': i['raw_output_script'], 'transHash': hash, 'n': n, 'block': block}
+            n = n + 1
+    if r.get('inputs', ''):
+        for i in r['inputs']:
+            if i.get('address','') in myaddr:
+                hash = i['prevout_hash']
+                n = i['prevout_n']
+                trans[hash+' '+str(n)] = 'spent'
+
+unspent = {}
+for t, v in trans.items():
+    if v != 'spent':
+        unspent[t] = v
+
+print json.dumps(unspent)
+
+
+

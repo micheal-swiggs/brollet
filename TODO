@@ -1,0 +1,16 @@
+
+Fix the problem with transactions getting rejected sometimes.
+
+Add the QR code scanning feature for browsers that support it with HTML5. Opera seems to support it.
+  google "html5 scan qr code"
+  see demo at webqr.com
+
+Finish and test support for the ability to send bitcoins by email.
+
+Finish support for Armory and Electrum wallet formats.
+
+
+
+
+
+

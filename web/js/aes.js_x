@@ -1,0 +1,13 @@
+<!--  calculate AESdecrypt using Google's hosted code  -->
+function AESencrypt() {
+	var plaintext = document.getElementById('yourInput').value;
+	var key = document.getElementById('key-input').value;
+	var aesCiphertext = Crypto.AES.encrypt(plaintext, key);
+	document.getElementById('AESresult').value = aesCiphertext ;
+}
+function AESdecrypt() {
+	var ciphertext = document.getElementById('yourInput').value;
+	var key = document.getElementById('key-input').value;
+	var aesPlaintext = Crypto.AES.decrypt(ciphertext, key);
+	document.getElementById('AESresult').value = aesPlaintext;
+}

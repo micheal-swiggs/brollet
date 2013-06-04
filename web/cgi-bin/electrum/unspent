@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+
+import sys
+
+try:
+    from lib import *
+except ImportError:
+    from electrum import *
+
+config_options = {'wallet_path':"", 'blockchain_headers_path':'', 'gui':''}
+config = SimpleConfig(config_options)
+wallet = Wallet(config)
+interface = Interface(config, True)
+wallet.interface = interface
+synchronizer = WalletSynchronizer(wallet, config)
+
+try:
+    addr = sys.argv[1]
+except:
+    print "usage: unspent <bitcoin_address>"
+    sys.exit(1)
+
+i = Interface({'server':'electrum.be:50001:t'})
+i.start()
+h = i.synchronous_get([ ('blockchain.address.get_history',[addr]) ])[0]
+for item in h:
+    print " "
+    print item['tx_hash'], item['height']
+    tx_hash = item['tx_hash']
+    tx_height = item['height']
+    t = i.synchronous_get([ ('blockchain.transaction.get',[tx_hash, tx_height]) ])[0]
+#            d = wallet.deserialize_tx(tx_hash, tx_height, t)
+    d = synchronizer.deserialize_tx(tx_hash, tx_height, t)
+    print "  "+str(d)
+
+	
+#synchronizer = WalletSynchronizer(wallet, config)
+	
+	
