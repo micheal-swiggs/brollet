@@ -1,4 +1,26 @@
 This project is based on the work of many other free and open source projects.
 
-This work is public domain.
+jQuery
+    code https://github.com/jquery/jquery
+    license https://jquery.org/license/
+Twitter Bootstrap
+    code https://github.com/twitter/bootstrap
+    license https://github.com/twitter/bootstrap/blob/master/LICENSE
+Electrum
+    code https://github.com/spesmilo/electrum-server
+    license https://github.com/spesmilo/electrum-server/blob/master/LICENSE
+BitcoinJS
+    code https://github.com/bitcoinjs/
+    license https://github.com/bitcoinjs/bitcoinjs-server/blob/master/LICENSE.txt
+BrainWallet 
+    code https://github.com/brainwallet/brainwallet.github.com 
+    license https://github.com/brainwallet/brainwallet.github.com/blob/master/LICENSE
+Crypto-JS 
+    code http://code.google.com/p/crypto-js/ 
+    license http://code.google.com/p/crypto-js/wiki/License
+
+The work done in this project is public domain. But please check the licenses of
+other projects used by this project to see if your intended use is allowed by the
+license.
+
 
