@@ -1052,12 +1052,12 @@ Recover: the private key encrypted with a private key owned by the sender, used 
 
 To redeem the recipient just needs to provide the code they were emailed and also
 a password if the sender chose to add one. The email of the recipient needed to decrypt
-the above message will already be known from the EasyWallet info.
+the above message will already be known from the EZWallet info.
 
 To recover the sender just needs to provide the code and the email of the recipient.
 If the sender added a password to redeem, it is not required to be recalled.
 The private key needed to decrypt the Recover field of the above message will already
-be in the senders EasyWallet.
+be in the senders EZWallet.
 
 If the sender does not add a password then anyone who intercepts the email
 can redeem the bitcoins. If the recipient redeems the bitcoins first, the 
@@ -1122,7 +1122,7 @@ rand: "+rand+"\n\
 
     // --- Advanced ---
 
-    function advancedEasyBtn(){
+    function advancedEZBtn(){
       $('#advancedEmailDiv').show()
       $('#advancedWalletNameDiv').show()
       $('#advancedRangeDiv').show()
@@ -2417,7 +2417,7 @@ alert(tx)
 
 
         // advanced
-        $('#advancedEasyBtn').click(advancedEasyBtn);
+        $('#advancedEZBtn').click(advancedEZBtn);
         $('#advancedArmoryBtn').click(advancedArmoryBtn);
         $('#advancedElectrumBtn').click(advancedElectrumBtn);
         $('#advancedKeysBtn').click(advancedKeysBtn);

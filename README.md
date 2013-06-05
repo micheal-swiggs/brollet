@@ -1,7 +1,7 @@
 ew
 ==
 
-EasyWallet
+EZWallet
 
 The biggest problem faced by anyone wanting to get started with bitcoin is how to store the priviate keys linked to the public bitcoin addresses. 
 
