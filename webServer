@@ -1,0 +1,26 @@
+#!/bin/env python
+
+import SocketServer
+import BaseHTTPServer
+import CGIHTTPServer
+
+class ThreadingCGIServer(SocketServer.ThreadingMixIn,
+                   BaseHTTPServer.HTTPServer):
+    pass
+
+import sys
+
+if sys.argv[1:]:
+    port = int(sys.argv[1])
+else:
+    port = 8099
+
+server = ThreadingCGIServer(('', port), CGIHTTPServer.CGIHTTPRequestHandler)
+try:
+    while 1:
+        sys.stdout.flush()
+        server.handle_request()
+except KeyboardInterrupt:
+    print "Finished"
+
+
