@@ -1,5 +1,7 @@
 #!/bin/env python
 
+# Found this here: http://code.activestate.com/lists/python-list/284803/
+
 import SocketServer
 import BaseHTTPServer
 import CGIHTTPServer

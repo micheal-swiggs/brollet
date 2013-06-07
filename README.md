@@ -13,3 +13,5 @@ The safest approch is to use a deterministic wallet so that private keys can be 
 
 The goal of this project is to build such a wallet. A wallet that is easy to use and provides safe storage.
 
+You can try it out here: http://arimaa.com:9696
+
