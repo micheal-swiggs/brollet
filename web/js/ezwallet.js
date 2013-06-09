@@ -578,8 +578,13 @@ function compareBlockDesc(a, b){
         homeUpdateBalance()
     }
 
+    function homeCloseWalletAsk(){
+        var a = confirm('Close the EZ wallet?')
+        if (! a){ return }
+        homeCloseWallet()
+    }
+
     function homeCloseWallet(){
-alert('homeCloseWallet')
         var s
         G = {};
         Keys = {}
@@ -1341,6 +1346,12 @@ alert('No keys found.')
             c += 1
         }
         $('#advancedReceiveAddresses').html(s)
+    }
+
+    function advancedCloseWalletAsk(){
+        var a = confirm('Close the Advanced wallet?')
+        if (! a){ return }
+        advancedCloseWallet()
     }
 
     function advancedCloseWallet(){
@@ -2438,7 +2449,7 @@ alert(tx)
 
         // home
         $('#homeOpenWallet').click(homeOpenWallet);
-        $('#homeCloseBtn').click(homeCloseWallet);
+        $('#homeCloseBtn').click(homeCloseWalletAsk);
         $('#homeSendBtn').click(homeSendForm);
         $('#homeSendByAddressBtn').click(homeSendByAddressForm);
         $('#homeSendByEmailBtn').click(homeSendByEmailForm);
@@ -2468,7 +2479,7 @@ alert(tx)
         $('#advancedElectrumBtn').click(advancedElectrumBtn);
         $('#advancedKeysBtn').click(advancedKeysBtn);
         $('#advancedOpenWallet').click(advancedOpenWallet);
-        $('#advancedCloseBtn').click(advancedCloseWallet);
+        $('#advancedCloseBtn').click(advancedCloseWalletAsk);
         $('#advancedSendBtn').click(advancedSendForm);
         $('#advancedReceiveBtn').click(advancedReceiveForm);
         $('#advancedSendCancelBtn').click(advancedSendCancel);
