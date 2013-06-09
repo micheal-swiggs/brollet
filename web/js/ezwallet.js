@@ -579,6 +579,7 @@ function compareBlockDesc(a, b){
     }
 
     function homeCloseWallet(){
+alert('homeCloseWallet')
         var s
         G = {};
         Keys = {}
@@ -622,6 +623,49 @@ function compareBlockDesc(a, b){
         $('#homeSendCodeForm').hide()
         $('#homeMainForm').show()
     }
+
+    function homeScan(){
+        var r
+        alert('Currently only these browsers support this feature:\n  on PC, Chrome and Opera;\n  on mobile, Opera v12.')
+        var opts = {
+            fps: 4,
+            width: 320,
+            height: 240
+        }
+        $('#qrscanText').html('')
+        $('#qrscanImage').html('')
+        Miniqr.reader(homeScanVideoPass, homeScanVideoFail, homeScanCodePass, homeScanCodeFail, opts)
+    }
+
+    function homeScanClose(){
+        $('#homeSendForm').show()
+        $('#qrscanForm').hide()
+        Miniqr.stop()
+        $('#qrscanText').html('')
+        $('#qrscanImage').html('')
+    }
+
+    function homeScanVideoPass(video, stream){
+        $('#qrscanForm').show()
+        $('#homeSendForm').hide()
+        $('#qrscanImage').html(video)
+    }
+
+    function homeScanVideoFail(error){
+        if (error == undefined){ return }
+        if (error.message != undefined){ alert(error.message) }
+//        $('#qrscanText').html('Could not access the webcam.')
+    }
+
+    function homeScanCodePass(code){
+        $('#homeSendTo').val(code)
+        homeScanClose()
+    }
+
+    function homeScanCodeFail(error){
+//        $('#qrscanText').html('Could not read the QR code.')
+    }
+
 
     function homeReceiveForm(){
         $('#homeReceiveForm').show()
@@ -2401,6 +2445,8 @@ alert(tx)
         $('#homeSendCodeDoneBtn').click(homeSendCodeDone);
         $('#homeSendCancelBtn').click(homeSendCancel);
         $('#homeSendSendBtn').click(homeSendTx);
+        $('#homeScanBtn').click(homeScan);
+        $('#homeScanCloseBtn').click(homeScanClose);
         $('#homeReceiveBtn').click(homeReceiveForm);
         $('#homeReceiveBackBtn').click(homeReceiveBack);
         $('#homeRedeemBtn').click(homeRedeemForm);

@@ -39,7 +39,8 @@
         </div>
     </div>
 </div>
-<!-- Modal for QR Code -->
+
+<!-- Modal for QR Code Display -->
 <div id="qrcodeModal" class="modal hide" tabindex="-1" role="dialog" aria-labelledby="qrcodeModalLabel" aria-hidden="true">
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
@@ -53,6 +54,26 @@
         <button class="btn btn-primary" data-dismiss="modal" aria-hidden="true">Close</button>
     </div>
 </div>
+
+<!-- Modal for QR Code Scan -->
+<!-- Model is leaving a dark screen on Opera after the modal is closed; not sure why -->
+<!--
+<div id="qrscanModal" class="modal hide" tabindex="-1" role="dialog" aria-labelledby="qrscanModalLabel" aria-hidden="true">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
+        <h3 id="qrscanModalLabel">Scan QR Code</h3>
+    </div>
+    <div class="modal-body">
+        <span id="qrscanImage"></span><br><br>
+        <span id="qrscanText"></span>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-primary" data-dismiss="modal" aria-hidden="true">Close</button>
+    </div>
+</div>
+-->
+
+
 <div class="container"> 
     <div class="tab-content"> 
 
@@ -326,6 +347,16 @@
                 </div>
             </fieldset>
             </form>
+<form action="/" class="form-horizontal hide" method="get" id="qrscanForm">
+  <fieldset>
+    <legend>Scan QR Code</legend>
+    <label>
+        <span id="qrscanImage"></span><br>
+        <span id="qrscanText"></span>
+    </label>
+    <button class="btn" type=button id="homeScanCloseBtn">Close</button>
+  </fieldset>
+</form>
         </div>
 
 <!-- Buy -->
@@ -640,6 +671,9 @@
 <script src="js/tx.js"></script> 
 <script src="js/aes.js"></script> 
 <script src="js/bitcoinsig.js"></script> 
+<script src="js/miniqr/jsqrcode.min.js"></script> 
+<script src="js/miniqr/Sinne.js"></script> 
+<script src="js/miniqr/main_my.js"></script> 
 <script src="js/ezwallet.js"></script> 
 </body>
 </html> 

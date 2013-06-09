@@ -1,0 +1,15 @@
+The main_my.js is a modified version of 
+    https://raw.github.com/franzenzenhofer/miniqr/master/js/lib/main.js
+It was modified to add a stop() function which could be called to stop scanning.
+
+
+The jsqrcode.min.js is from 
+    https://raw.github.com/franzenzenhofer/jsqrcode/master/lib/jsqrcode.min.js
+Original source can be found here:
+    https://github.com/LazarSoft/jsqrcode
+
+
+The Sinne.js is from
+    https://raw.github.com/franzenzenhofer/Sinne/master/lib/Sinne.js
+
+
