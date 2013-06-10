@@ -1,1 +1,1 @@
-./httpd.sh 2>> logs/web.log &
+./httpd.sh $1 2>> logs/web.log &
