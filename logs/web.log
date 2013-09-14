@@ -1,2 +1,0 @@
-./httpd.sh: line 12:  7655 Terminated              ../webServer $PORT
-./httpd.sh: line 12:  7778 Terminated              ../webServer $PORT

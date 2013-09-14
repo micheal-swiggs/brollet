@@ -14,6 +14,7 @@
     <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
     <link href="favicon.ico" rel="shortcut icon">
+    <script src="js/jquery-1.7.2.min.js"></script> 
 </head>
 <body>
 <div class="navbar navbar-fixed-top"> 
@@ -218,10 +219,18 @@
                     </div>
                 </div>
                 <div class="control-group"> 
+                    <label class="control-label"></label> 
+                    <div class="controls">
+                        <span id="sendingInfo" class="span5" align="justify" style="margin-left:0"></span>
+                    </div>
+                </div>
+
+                <div class="control-group"> 
                     <label class="control-label" for="homeSend"></label> 
                     <div class="controls"> 
                         <button class="btn" id="homeSendCancelBtn" type="button">Cancel</button> 
-                        <button class="btn" id="homeSendSendBtn" type="button">Send It</button> 
+                        <button class="btn" id="homeSendSendBtn" type="button">Send It</button>
+                        <button class="btn hide" id="showEmailCodeBtn" type="button" style="margin-left: 5px">Show code</button>
 <!--
                         <button class="btn" id="homeSendShowBtn" type="button">Show It</button> 
 -->
@@ -308,6 +317,12 @@
                         <label class="span5" for="homeRedeemBalance" id="homeRedeemBalance"></label>
                     </div>
                 </div>
+                <div class="control-group" id="homeRedeemPrivateKeys">
+                    <label class="control-label" for="homeRedeemPrKeys"></label>
+                    <div class="controls">
+                        <input id="importedTransfer" type="checkbox" checked="true" style="height: 16px;"/><span style="margin-left: 10px;">Transfer to an EZWallet address.</span>
+                    </div>
+                </div>
                 <div class="control-group"> 
                     <label class="control-label" for="homeRedeemNowBtn"></label> 
                     <div class="controls"> 
@@ -338,11 +353,27 @@
                         <input class="span5" id="homeRecoverFee" title="To speed up the transaction, include a small fee."> 
                     </div>
                 </div>
+                <div class="control-group">
+                    <label class="control-label" for="homeRecoverInfo">Info</label>
+                    <div class="controls">
+                        <div class="span5" style="margin-left: 0">
+                            <p id="homeRecoverPre"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="homeRecoverBalance">Balance</label>
+                    <div class="controls">
+                        <div class="span5" style="margin-left: 0">
+                            <p id="homeRecoverBalancePre"></p>
+                        </div>
+                    </div>
+                </div>
                 <div class="control-group"> 
-                    <label class="control-label" for="homeRecoverBtn"></label> 
+                    <label class="control-label" for="homeRecoverNowBtn"></label> 
                     <div class="controls"> 
                         <button class="btn" id="homeRecoverCancelBtn" type="button">Cancel</button> 
-                        <button class="btn" id="homeRecoverBtn" type="button">Recover</button> 
+                        <button class="btn" id="homeRecoverNowBtn" type="button">Recover</button> 
                     </div>
                 </div>
             </fieldset>
@@ -454,7 +485,8 @@
                 <div class="control-group"> 
                     <label class="control-label" for="advancedOpenWallet"></label> 
                     <div class="controls"> 
-                        <button class="btn" id="advancedOpenWallet" type="button">Open Wallet</button> 
+                        <button class="btn" id="advancedOpenWallet" type="button">Open Wallet</button>
+                        <div id="advancedWalletWaitingIcon" style="margin: 5px; margin-top: 10px"></div>
                     </div>
                 </div>
             </fieldset>
@@ -638,7 +670,41 @@
                         </div>
                     </div>
                 </div>
+                
+                <legend>SMTP</legend>
+                <div class="control-group">
+                    <label class="control-label" for="smtpHost">SMTP Host</label>
+                    <div class="controls">
+                        <input class="span5" id="smtpHost" type="text"> 
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="smtpPort">SMTP Port</label>
+                    <div class="controls">
+                        <input class="span5" id="smtpPort" type="text">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="smtpUsername">SMTP Username</label>
+                    <div class="controls">
+                        <input class="span5" id="smtpUsername" type="text">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="smtpPassword">SMTP Password</label>
+                    <div class="controls">
+                        <input class="span5" id="smtpPassword" type="password">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label"></label>
+                    <div class="controls">
+                        <button class="btn" id="smtpSettingsBtn" type="button">Update</button>
+                        <button class="btn" id="smtpTestBtn" type="button" style="margin-left:5px">Test</button>
+                    </div>
+                </div>
 <!--
+
                 <div class="control-group"> 
                     <label class="control-label" for="settingsElectrumServer">Electrum Server</label> 
                     <div class="controls"> <p>
@@ -653,6 +719,44 @@
 
         <hr /> 
     </div>
+    <div class="email-modal-wrapper">
+        <div class="email-modal">
+            <h1 style="margin-bottom: 20px">Test Email Settings</h1>
+                <div class="control-group">
+                    <label class="control-label" for="from-email">From</label>
+                    <div class="controls">
+                        <input class="span5" id="from-email" type="text">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="to-email">To</label>
+                    <div class="controls">
+                        <input class="span5" id="to-email" type="text">
+                    </div>
+                </div>
+                <div class="control-group"> 
+                    <label class="control-label" for="email-msg">Message</label> 
+                    <div class="controls"> 
+                        <textarea class="span5" id="email-msg" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group" style="overflow: auto"> 
+                    <label class="control-label"></label> 
+                    <div class="controls">
+                        <span id="test-email-sending-info" class="span5" align="justify" style="margin-left:0"></span>
+                    </div>
+                </div>
+
+                <div class="control-group" style="overflow: auto">
+                    <label class="control-label"></label>
+                    <div class="controls">
+                        <button class="btn" id="send-test-email-btn" type="button">Send</button>
+                        <button class="btn" id="cancel-test-email-btn" type="button">Cancel</button>
+                    </div>
+                </div>
+        </div>
+    </div>
+
     <FOOTER> 
 
     <p>EZWallet
@@ -660,7 +764,7 @@
     </small></span></p> 
     </FOOTER> 
 </div>
-<script src="js/jquery-1.7.2.min.js"></script> 
+
 <script src="js/jquery.qrcode.min.js"></script> 
 <script src="js/bootstrap.min.js"></script> 
 <script src="js/bitcoinjs-min.js"></script> 

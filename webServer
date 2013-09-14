@@ -1,5 +1,7 @@
 #!/bin/env python
 
+# For ubuntu install should be #!/usr/bin/env python
+
 # Found this here: http://code.activestate.com/lists/python-list/284803/
 
 import SocketServer

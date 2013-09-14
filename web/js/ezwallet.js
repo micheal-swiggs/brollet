@@ -1,4 +1,30 @@
 (function($){
+    Bitcoin.TransactionOut.prototype.valueAsInt = function () {
+        var cpy = [];
+        for (var i=0; i<this.value.length; i++){
+            cpy.push(this.value[i]);
+        }
+        cpy.reverse();
+        return parseInt( new BigInteger(cpy).toString());
+    }
+
+    Bitcoin.TransactionOut.create = function (addr, amt){
+        if(!(addr instanceof Bitcoin.Address) && !(amt instanceof BigInteger)){
+            throw "Type error"
+        }
+        var value = amt.toByteArrayUnsigned().reverse();
+        while (value.length < 8)value.push(0);
+        return new Bitcoin.TransactionOut({value: value, script: Bitcoin.Script.createOutputScript(addr) })
+    }
+
+
+    var DEFAULT_BLOCK_PRIORITY_SIZE = 27000;
+    var CENT = 1000000;
+    var COIN = 100000000;
+    var MAX_BLOCK_SIZE = 1000000;
+    var MAX_BLOCK_SIZE_GEN = MAX_BLOCK_SIZE / 2;
+    var MAX_STANDARD_TX_SIZE = MAX_BLOCK_SIZE_GEN / 5;
+    var minTxFee = 11000; //nMinTxFee - In the main client it is set as 10000.
 
     var gen_from = 'pass';
     var gen_compressed = false;
@@ -11,6 +37,7 @@
 // Me - added these for the fast generation wallet
     var Seed = {}
     var Keys = {}
+    var ImportedKeys = {} //All keys imported into the wallet, for example keys sent via email.
     var Unspent = {}
     var Bal = {}
     var TotBal = 0  // this is ReadyBal + PendingBal
@@ -44,7 +71,7 @@
         else
             return [0x80|2, len >> 8, len & 0xff];
     }
-    
+
     encode_id = function(id, s) {
         var len = encode_length(s.length);
         return [id].concat(len).concat(s);
@@ -121,7 +148,7 @@
                     encode_integer(1)
                 )
             ),
-            encode_constructed(1, 
+            encode_constructed(1,
                 encode_bitstring([0].concat(encoded_pub))
             )
         );
@@ -152,14 +179,14 @@
 
 // --- util functions ---
 
-// removes spaces, tabs, form feed and new line 
+// removes spaces, tabs, form feed and new line
 // characters, ' ', '\t', '\r', '\n'
     function removeWhiteSpace(s){ return s.replace(/\s/g, '') }
 
-// removes white spaces from ends and squeeze white spaces in the 
+// removes white spaces from ends and squeeze white spaces in the
 // middle to just one
-    function trimWhiteSpace(s){ 
-        return s.replace(/\s+/g, ' ').replace(/^\s/, '').replace(/\s$/, '') 
+    function trimWhiteSpace(s){
+        return s.replace(/\s+/g, ' ').replace(/^\s/, '').replace(/\s$/, '')
     }
 
 // return a random hex string
@@ -186,6 +213,8 @@ function hex2bigIntKey(s){ return bigInt2bigIntKey(hex2bigInt(removeWhiteSpace(s
 // given a byte array return a hex string
 function bytes2hex(b){ return Crypto.util.bytesToHex(b); }
 
+// given a hex string return base58 string
+function hex2base58(s){ return Bitcoin.Base58.encode(hex2bytes(s))}
 // given a hex string return a byte array
 function hex2bytes(s){ return Crypto.util.hexToBytes(s); }
 
@@ -196,11 +225,11 @@ function hex2base64(s){ return Crypto.util.bytesToBase64(hex2bytes(s)) }
 function base642hex(s){ return bytes2hex(Crypto.util.base64ToBytes(s)) }
 
 // given a base 58 string convert it to a hex string
-function base582hex(s){ 
+function base582hex(s){
   var res, bytes
-  try { res = parseBase58Check(s); bytes = res[1]; } 
+  try { res = parseBase58Check(s); bytes = res[1]; }
   catch (err) { bytes = Bitcoin.Base58.decode(s); }
-  return bytes2hex(bytes) 
+  return bytes2hex(bytes)
 }
 
 // given any string returns a hex string of 32 bytes (256 bits)
@@ -237,7 +266,7 @@ function pubKeyHash2bitAdd(k){
   return b.toString();
 }
 
-// given a public key in hex return the base64 bitcoin address
+// given a public key in hex return the base58 bitcoin address
 function pubKey2bitAdd(k){
   var b = new Bitcoin.Address(hex2bytes(pubKey2pubKeyHash(k)));
   return b.toString()
@@ -246,11 +275,16 @@ function pubKey2bitAdd(k){
 // given a private key in hex return the base64 bitcoin address
 function key2bitAdd(k){ return pubKey2bitAdd(key2pubKey(k)) }
 
+function key2base58addy(privKey){
+    var pbKey = key2pubKey (privKey)
+    var btcAddr = pubKey2bitAdd(pbKey);
+    return btcAddr
+}
 // given a ScriptPubKey as a string convert it to bytes
 function parseScript(script) {
         var newScript = new Bitcoin.Script();
         var s = script.split(" ");
-        for (var i in s) {
+        for (var i=0; i<s.length; i++) {
                 if (Bitcoin.Opcode.map.hasOwnProperty(s[i])){
                         newScript.writeOp(Bitcoin.Opcode.map[s[i]]);
                 } else {
@@ -287,7 +321,7 @@ function parseScriptHex(script) {
 //  563412   - this is applied to the transaction hash
 function endian(string) {
         var out = []
-        for(var i = string.length; i > 0; i-=2) {
+        for(var i = string.length; i > -1; i-=2) {
                 out.push(string.substring(i-2,i));
         }
 //      console.debug(string);
@@ -335,17 +369,67 @@ function selectText(objId) {
 }
 
 function deSelectText() {
-  if (document.selection) document.selection.empty(); 
+  if (document.selection) document.selection.empty();
   else if (window.getSelection)
   window.getSelection().removeAllRanges();
 }
 
+function containsSubCentOutput (sendTx){
+    for (var i=0; i<sendTx.outs.length; i++){
+        if (sendTx.outs[i].valueAsInt() < CENT) return true;
+    }
+    return false;
+}
 
+function lowPriorityOrLargeTransaction (sendTx){
+    var txPriority = transactionPriority (sendTx);
+    if (txPriority < (COIN * 144 / 250)) return true;
+    return (sendTx.serialize().length >= DEFAULT_BLOCK_PRIORITY_SIZE - 17000);
+}
 
-// from - a string of zero or more addresses seperated by space; 
+function txTooBig (sendTx){
+    return (sendTx.serialize().length > MAX_STANDARD_TX_SIZE);
+}
+
+function sizeOfTxOut (txOut){
+    return serializeTxOut (txOut).length;
+}
+
+function serializeTxOut (txOut){
+    var buffer = [];
+    buffer = buffer.concat(txOut.value);
+    var scriptBytes = txOut.script.buffer;
+    buffer = buffer.concat(Bitcoin.Util.numToVarInt(scriptBytes.length));
+    buffer = buffer.concat(scriptBytes);
+    return buffer;
+}
+
+function isDust (txOut){
+    var nMinRelayTxFee = 10000;
+    var nValue = txOut.valueAsInt();
+    var txOutSize = sizeOfTxOut (txOut);
+    return ((nValue*1000)/(3*(txOutSize+148))) < nMinRelayTxFee;
+}
+
+//Requires that transaction inputs have main chain depth.
+function transactionPriority (sendTx){
+    var priority = 0;
+
+    for(var i=0; i<sendTx.ins.length; i++){
+        var txIn = sendTx.ins[i];
+        var val = num2sathoshi(txIn.value);
+        var block = txIn.block;
+        priority += (val * (block +1));
+    }
+    var r = sendTx.serialize().length
+    var result = priority / r;
+    return result;
+}
+
+// from - a string of zero or more addresses seperated by space;
 //        the provided addresses will be used before picking other addresses to meet the amount+fee
 //        "" or "address1" or "address1 address2 ..."
-// to - a string of one or more address and amount pairs (seperated by space) sperated by space; 
+// to - a string of one or more address and amount pairs (seperated by space) sperated by space;
 //        "address amount" or "address1 amount1 address2 amount2 ..."
 // change - a string of zero or one address to return excess change;
 //        if not provided then the change is returned to the first from address given
@@ -353,67 +437,90 @@ function deSelectText() {
 // fee - a float or int or empty string which specifies the amount to pay in transaction fees
 //        "" or "0" or "4" or "2.4"
 function makeTxObj(from, to, change, fee){
-  var fa, ta, feeTot, amtTot, th, tha, i, adr, amt, amtFloat, amtTot, traz, tra, fundTot, returnTot
+    return makeTxObjBase(from, to, change, fee, false)
+}
+function makeTxObjBase(from, to, change, fee, onlyFromAddrs){
+  var fromPairs, toPairs, feeTot, amtTot, toAddrAmtMap, toAddrs, i, adr, amt, amtFloat, amtTot, traz, tra, fundTot, returnTot
   var sendTx, sentTot, amountBigInt, toAddr, hashType, inCount, tr, script, hash, tx, signHash, key, sign
   var pkh, pk
 
-  fa = str2wordArr(from)
-  ta = str2wordArr(to)
-//  if (ta.length < 1){ alert('Please complete the form.'); return }
-  if (ta.length < 2){ alert('Please complete the form.'); return }
+
+  fromPairs = str2wordArr(from)
+  toPairs = str2wordArr(to)
+  if (toPairs.length < 2){ alert('Please complete the form.'); return }
   change = trimWhiteSpace(change)
   if ((fee == undefined) || (fee == '')){ fee = '0' }
-//  fee = fee.replace(/[^\d\.]/g, '')  
-  if (fee == ''){ fee = 0 }
   feeFloat = parseFloat(fee)
   amtTot = feeFloat
-// go through the to addresses and amounts and put them in th
-  th = []
-  tha = []  
-  for(i=0;i<ta.length;i+=2){
-    adr = ta[i]
-    amt = ta[i+1].replace(/[^\d\.]/g, '')
+  toAddrAmtMap = {}
+  toAddrs = []
+  for(i=0;i<toPairs.length;i+=2){
+    adr = toPairs[i]
+    amt = toPairs[i+1].replace(/[^\d\.]/g, '')
     if (amt == ''){ amt = '0' }
     amtFloat = parseFloat(amt)
     amtTot += amtFloat
-    th[adr] = amtFloat
-    tha.push(adr)
+    toAddrAmtMap[adr] = amtFloat
+    toAddrs.push(adr)
   }
   if (amtTot<=0.0){ alert('Amount must be greater than 0.'); return }
-  
+  console.log(amtTot)
 // get a list of unspent transaction we can send from; make sure the from address isn't also a to address
-  traz = bitAddArr2transRefArr(fa, amtTot, tha)
-
+  traz = bitAddArr2transRefArr(fromPairs, amtTot, toAddrs, onlyFromAddrs)
   if (traz == 0){ alert('Insufficient funds.'); return }
   tra = traz[0]
   fundTot = traz[1]
   returnTot = fundTot - amtTot
   returnTot = sathoshi2num(num2sathoshi(returnTot))
 
+
   sendTx = new Bitcoin.Transaction()
 // create the outputs
   sentTot = 0.0
-  for(adr in th){
-    amt = th[adr]
+
+  for(var i=0; i<toAddrs.length; i++){
+    adr = toAddrs[i];
+    amt = toAddrAmtMap[adr]
     amountBigInt = num2sathoshiBigInt(amt)
     toAddr = new Bitcoin.Address(adr)
     sendTx.addOutput(toAddr, amountBigInt)
     sentTot += amt
 // add the address so it is easy to see on the debug page
     sendTx.outs[sendTx.outs.length-1].address = adr
+    if (isDust(sendTx.outs[sendTx.outs.length-1])){
+        alert("Dust transaction to address: "+ adr+ " and amount:"+amt+" BTC(s)")
+        return null;
+    }
   }
-  if (returnTot>0){
+
+  var satoshiChange = num2sathoshi (returnTot);
+  var satoshiFee = num2sathoshi (feeFloat);
+  if (satoshiChange < CENT && satoshiChange > 0 && satoshiFee < minTxFee){
+    var moveToFee = Math.min (satoshiChange, minTxFee - satoshiFee);
+    satoshiChange -= moveToFee;
+    satoshiFee += moveToFee;
+    returnTot = sathoshi2num(satoshiChange)
+    feeFloat = sathoshi2num(satoshiFee)
+  }
+
+  if (satoshiChange>0 ){
     amountBigInt = num2sathoshiBigInt(returnTot)
     if (change == ''){
-      if (fa.length > 0){ adr = fa[0] }
+      if (fromPairs.length > 0){ adr = fromPairs[0] }
       else{ adr = tra[0].address }
     }
     else{ adr = change }
 //alert(JSON.stringify(tra, '', '  '))
     toAddr = new Bitcoin.Address(adr)
-    sendTx.addOutput(toAddr, amountBigInt)
-// add the address so it is easy to see on the debug page
-    sendTx.outs[sendTx.outs.length-1].address = adr
+    var txOutput = Bitcoin.TransactionOut.create(toAddr, amountBigInt)
+    if (!isDust(txOutput)){ //change added to fee if dust.
+        sendTx.addOutput(toAddr, amountBigInt)
+        // add the address so it is easy to see on the debug page
+        sendTx.outs[sendTx.outs.length-1].address = adr
+    }else{
+        feeFloat += returnTot
+    }
+
   }
 //console.log(JSON.stringify(sendTx, '', '  '))
 
@@ -421,9 +528,8 @@ function makeTxObj(from, to, change, fee){
 //   we have to do this in two loop instead of one loop, otherwise it does not work
 //   all the inputs have to be created before they are signed.
 //   The signing looks at the whole transaction.
-
   hashType = 1   // SIGHASH_ALL
-  for(i in tra){
+  for(var i=0; i<tra.length; i++){
     tr = tra[i]
 // the script can be provided as scriptPubKey or scriptHex
     if (typeof(tr.scriptPubKey) == 'string'){
@@ -436,18 +542,19 @@ function makeTxObj(from, to, change, fee){
 //console.debug('script is '+JSON.stringify(script,'','  ')+'\n')
     }
     hash = hex2base64(endian(tr.transHash))
-    tx = new Bitcoin.TransactionIn({outpoint: {hash: hash, index: tr.n}, script: script, sequence: 4294967295})
+    tx = new Bitcoin.TransactionIn({outpoint: {hash: hash, index: tr.n},
+                                   script: script, sequence: 4294967295})
     sendTx.addInput(tx)
   }
 
 // now sign the input in the second loop
 //console.log(JSON.stringify(tra, '', '  '))
   inCount = 0
-  for(i in tra){
+  for(var i=0; i<tra.length; i++){
     script = sendTx.ins[inCount].script;
     signHash = sendTx.hashTransactionForSignature(script, inCount, hashType)
 //console.debug(signHash+'\n')
-    key = bigInt2ECKey(hex2bigInt(Keys[tr.address]))
+    key = bigInt2ECKey(hex2bigInt(Keys[tra[i].address]))
     pkh = script.simpleOutPubKeyHash()
     sign = key.sign(signHash)
     sign.push(parseInt(hashType, 10))
@@ -456,14 +563,27 @@ function makeTxObj(from, to, change, fee){
 // add this just so we can easily see what address was used to send from
     sendTx.ins[inCount].address = tra[inCount].address
     sendTx.ins[inCount].value = tra[inCount].value
+    //Add chain depth for calculating transaction priority.
+    sendTx.ins[inCount].block = tra[inCount].block
     inCount += 1
+  }
+  if (txTooBig (sendTx)){
+      alert("Unable to send bitcoins, transaction too big.")
+      return null;
+  }
+  var storageFee = lowPriorityOrLargeTransaction (sendTx) ? (1+Math.floor(sendTx.serialize().length/1000)) * minTxFee : 0;
+  var subCentFee = containsSubCentOutput (sendTx) ? minTxFee : 0;
+  var minFee = Math.max (storageFee, subCentFee);
+  if (num2sathoshi(feeFloat) < minFee){
+      alert("Fee amount too small, try:"+sathoshi2num(minFee)+" BTC");
+      return null;
   }
 //console.log(JSON.stringify(sendTx, '', '  '))
 
 //jd = JSON.stringify(sendTx,'','   ')
 //alert(jd)
 //showit(Bitcoin.Transaction.objectify([sendTx]))
-
+  alert("Fee is "+feeFloat+" BTC")
   return sendTx;
 
 }
@@ -474,7 +594,7 @@ function makeTxObj(from, to, change, fee){
 //    while trying to use the given addresses before other address.
 //    Do you get what I mean; probably not. Just read the code :-)
 // we are also given a list of the addresses not to use in 'tha'
-function bitAddArr2transRefArr(baa, amount, tha){
+function bitAddArr2transRefArr(baa, amount, tha, onlyFromAddrs){
   var save, res, tot, i, t, ta
   save = []
   res = []
@@ -499,6 +619,7 @@ function bitAddArr2transRefArr(baa, amount, tha){
       if (tot >= amount){ return [res, tot] }
     }
   }
+  if (onlyFromAddrs) return [res, tot]
   // now pick from the other addresses, since the given address did not have enough
   for (i in save){
     t = save[i]
@@ -522,7 +643,7 @@ function bitAddArr2transRefArr(baa, amount, tha){
   for (i=0; i<res.length; i++){
     t = res[i]
     tot += parseFloat(t.value)
-    if (tot >= amount){ 
+    if (tot >= amount){
       i += 1
       if (i<res.length){
         res.splice(i)
@@ -614,7 +735,14 @@ function compareBlockDesc(a, b){
         UI.sendBy = 'address'
     }
 
+    function smtpHostPortAvailable(){
+        if ($("#smtpHost").val() == '') return false;
+        if ($("#smtpPort").val() == '') return false;
+        return true;
+    }
+
     function homeSendByEmailForm(){
+        settingsGet()
         $('#homeSendMessageDiv').show()
         $('#homeSendPasswordDiv').show()
         $('#homeSendToEmailDiv').show()
@@ -629,16 +757,134 @@ function compareBlockDesc(a, b){
         $('#homeMainForm').show()
     }
 
+    function mozillaScan(videoPass, videoFail, scanCodePass, scanCodeFail){
+        var video = document.createElement('video')
+        var canvas = document.createElement('canvas')
+        var photo = document.createElement('img')
+        var width = 600
+        var height = 400
+        var streaming = false
+        var continueScanning = true
+        var videoStream
+
+        function startup(){
+            navigator.getMedia = ( navigator.getUserMedia ||
+                         navigator.webkitGetUserMedia ||
+                         navigator.mozGetUserMedia ||
+                         navigator.msGetUserMedia);
+
+            navigator.getMedia(
+                {
+                    video: true,
+                    audio: false
+                },
+                function (stream){
+                    videoStream = stream
+                    if (navigator.mozGetUserMedia){
+                        video.mozSrcObject = stream
+                    } else {
+                        var vendorURL = window.URL || window.webkitURL;
+                        video.src = vendorURL ? vendorURL.createObjectURL(stream) : stream;
+                    }
+                    video.play();
+
+                    $(video).css('-webkit-transform', 'scale(0.5)')
+                    $(video).css('-moz-transform', 'scale(0.5)')
+                    $(video).css('-ms-transform', 'scale(0.5)')
+                    $(video).css('-o-transform', 'scale(0.5)')
+                    $(video).css('transform','scale(0.5)')
+                    $(video).css('margin-left', '-150px')
+                    $(video).css('margin-top', '-100px')
+                    $(video).css('margin-bottom', '-100px')
+                },
+                function(err){
+                    console.log("An error occurred! "+err);
+                    console.log(err);
+                    continueScanning = false
+                    videoFail(err);
+                }
+            )
+            video.addEventListener('canplay', function(ev){
+                if(!streaming){
+                    height = video.videoHeight / (video.videoWidth/width);
+                    video.setAttribute('width', width);
+                    video.setAttribute('height', height);
+                    video.setAttribute('width', width);
+                    video.setAttribute('height', height);
+                    streaming = true;
+                }
+            }, false);
+        }
+
+        var imageData = null
+        var gCanvas = null
+        var gContext = null
+
+        function initCanvas(){
+            gCanvas = document.createElement("canvas")
+            gCanvas.style.width = width+"px"
+            gCanvas.style.height= height+"px"
+            gCanvas.width = width
+            gCanvas.height = height
+            gContext = gCanvas.getContext("2d")
+            gContext.clearRect(0,0,width, height)
+            imageData = gContext.getImageData(0,0,320,240)
+        }
+
+        function takeImage(){
+            gContext.drawImage(video, 0,0 )
+            imageData = gContext.getImageData(0,0,gCanvas.width, gCanvas.height)
+            data= gCanvas.toDataURL('image/png')
+            photo.setAttribute('src', data)
+            photo.width = 400
+            photo.height = 400
+            return data
+        }
+
+        function qrCodeScan(){
+            takeImage()
+            qrcode.width = gCanvas.width
+            qrcode.height = gCanvas.height
+            qrcode.imagedata = imageData
+            qrcode.result = qrcode.process (gContext)
+            scanCodePass(qrcode.result)
+        }
+
+        function stop(){
+            continueScanning = false
+            if(video != null)video.pause()
+            if(videoStream != null) videoStream.stop()
+        }
+
+        startup()
+        initCanvas()
+        videoPass(video, null)
+
+        function scanning(){
+            try{
+                qrCodeScan()
+            } catch (e){
+                console.log(e)
+                scanCodeFail(e)
+            }
+            if(continueScanning){
+                setTimeout(scanning, 150)
+            }
+        }
+        Miniqr.stop = stop
+        setTimeout(scanning, 500)
+    }
     function homeScan(){
-        var r
+        mozillaScan(homeScanVideoPass, homeScanVideoFail, homeScanCodePass, homeScanCodeFail)
+        if(true) return
         alert('Currently only these browsers support this feature:\n  on PC, Chrome and Opera;\n  on mobile, Opera v12.')
         var opts = {
             fps: 4,
             width: 320,
             height: 240
         }
-        $('#qrscanText').html('')
-        $('#qrscanImage').html('')
+        $('#qrscanText').html('') //reset
+        $('#qrscanImage').html('') //reset
         Miniqr.reader(homeScanVideoPass, homeScanVideoFail, homeScanCodePass, homeScanCodeFail, opts)
     }
 
@@ -683,15 +929,115 @@ function compareBlockDesc(a, b){
         $('#homeMainForm').hide()
     }
 
+    function clearRedeemForm(){
+        $('#homeRedeemCode').val('')
+        $('#homeRedeemPassword').val('')
+        $('#homeRedeemFee').val('')
+        $('#homeRedeemInfo').html('')
+        $('#homeRedeemBalance').html('')
+    }
     function homeRedeemCancel(){
         $('#homeMainForm').show()
         $('#homeRedeemForm').hide()
+        clearRedeemForm()
     }
 
+    function validateFee(amt){
+        if(isNaN(parseFloat(amt))){
+            alert("Fee must be a number.")
+        }
+    }
     function homeRedeemNow(){
-alert('about to redeem now')
-        $('#homeMainForm').show()
-        $('#homeRedeemForm').hide()
+        alert('about to redeem now')
+        function pKeyListener(k){
+            addImportedKey(k)
+        }
+        homeSetRedeemInfo(pKeyListener)
+        if($('#importedTransfer').prop('checked')){
+            var fee = $("#homeRedeemFee").val()
+            if(fee == '')fee = '0.0'
+            validateFee(fee)
+            transferFromImportedToEZWallet(fee, function(d){
+                if (d == null) return;
+                homeUpdateBalance()
+                $('#homeMainForm').show()
+                $('#homeRedeemForm').hide()
+                clearRedeemForm();
+            })
+        }
+    }
+
+    function getRecoverPrivateKey(){
+        var email = $("#homeRecoverEmail").val()
+        var code = $("#homeRecoverCode").val().split("\n").join("")
+        var decryptedCode = AESdecrypt(code, email).split("\n")
+        var recoverCode = null;
+        for(var i=0; i<decryptedCode.length; i++){
+            if(decryptedCode[i].indexOf("recover:") > -1){
+                recoverCode = decryptedCode[i].split("recover:")[1]
+                recoverCode = removeWhiteSpace(recoverCode)
+                break;
+            }
+        }
+        var rand = AESdecrypt(recoverCode, seed2key(Seed.main, 0))
+        var info = AESdecrypt(code, email).replace(/\nredeem: [\s\S]*/, '\n')
+
+        key = hex2hexKey(hash256(info+rand))
+        return key
+
+    }
+
+    function homeSetRecoverInfo(){
+        var privKey = null
+        try{
+            privKey = getRecoverPrivateKey();
+            $("#homeRecoverPre").html("<pre>Key recovered.</pre>")
+
+        } catch (e){
+            $("#homeRecoverPre").html("<pre>Unable to recover.</pre>")
+            throw e
+        }
+        if (privKey == null)return;
+        var btcAddy = key2base58addy(privKey)
+        function balanceCallback(data){
+            var pending = 0;
+            var confirmed = 0;
+            for(var k in data){
+                if (data[k].address == null)continue;
+                if(data[k].block > 0){
+                    confirmed += data[k].sathoshi
+                }else{
+                    pending += data[k].sathoshi
+                }
+            }
+            var total = sathoshi2num (pending + confirmed)
+            pending = sathoshi2num(pending)
+            confirmed = sathoshi2num(confirmed)
+            var buf = bal2html(total, confirmed, pending)
+            $("#homeRecoverBalancePre").html(buf)
+        }
+        getUnspentBalance ([btcAddy], balanceCallback)
+    }
+    function homeRecoverNow(){
+        var privKey = getRecoverPrivateKey()
+        addImportedKey (privKey)
+        var fee = $("#homeRecoverFee").val()
+        if(fee == '')fee = '0.0'
+        validateFee(fee)
+        function callback(data){
+            if (data == null) return;
+            $("#homeMainForm").show()
+            $("#homeRecoverForm").hide()
+            $("#homeRecoverEmail").val('')
+            $("#homeRecoverCode").val('')
+            $("#homeRecoverFee").val('')
+            $("#homeRecoverPre").html('')
+            $("#homeRecoverBalancePre").html('')
+            homeUpdateBalance()
+        }
+        transferFromImportedToEZWallet(fee, callback)
+
+
     }
 
     function homeRecoverForm(){
@@ -699,14 +1045,31 @@ alert('about to redeem now')
         $('#homeMainForm').hide()
     }
 
+    function clearRecoverForm(){
+        $("#homeRecoverPre").html('')
+        $("#homeRecoverBalancePre").html('')
+        $("#homeRecoverCode").val('')
+        $("#homeRecoverFee").val('')
+        $("#homeRecoverEmail").val('')
+    }
+
     function homeRecoverCancel(){
         $('#homeMainForm').show()
         $('#homeRecoverForm').hide()
+        clearRecoverForm()
     }
 
     function homeSendCancel(){
         $('#homeMainForm').show()
         $('#homeSendForm').hide()
+        $("#homeSendBalanceAfter").html('')
+        $("#homeSendAmount").val('')
+        $("#homeSendFee").val('')
+        $("#homeSendTo").val('')
+        $("#homeSendToEmail").val('')
+        $("#homeSendMessage").val('')
+        $("#homeSendPassword").val('')
+
     }
 
     function homeReceiveBack(){
@@ -726,6 +1089,66 @@ alert('about to redeem now')
         $.post('cgi-bin/unspent.py', addrStr, homeUpdateBalanceFill, 'text')
     }
 
+    function updateAllSpentInfo (callback){
+        var addrArr = []
+        for(ba in Keys){
+            addrArr.push(ba)
+        }
+        function callbackWrapper (data){
+            Unspent = data
+            callback(data)
+        }
+        getUnspentBalance(addrArr, callbackWrapper)
+    }
+    //Retreives the the unspent balance for the specified addresses.
+    //addrArr should be an array of bitcoin address strings as base58.
+    function getUnspentBalance(addrArr, callback){
+        var addrStr = JSON.stringify(addrArr)
+        function callbackWrapper(data){
+            var result = parseUnspentDataBase(data, addrArr)
+            callback(result);
+        }
+        $.post('cgi-bin/unspent.py', addrStr, callbackWrapper, 'text')
+    }
+
+    function parseUnspentDataBase(data, actualKeys){
+        var i, res, tr, script, sa, addr;
+        var unspentResult = []
+        res = JSON.parse(data, '', '  ')
+         for(i in res){
+            tr = res[i]
+            if ((tr.value == undefined) || (tr.value == '')){
+              if (typeof(tr.sathoshi) == 'number'){
+                tr.value = sathoshi2num(tr.sathoshi)
+                res[i].value = tr.value
+              }
+            }
+            if ((tr.address == undefined) || (tr.address == '')){
+// try to find it from the Script
+// the script can be provided as scriptPubKey or scriptHex
+              if (typeof(tr.scriptPubKey) == 'string'){
+                script = tr.scriptPubKey
+              }
+              if (typeof(tr.scriptHex) == 'string'){
+                script = parseScriptHex(tr.scriptHex)
+                res[i].scriptPubKey = script
+//console.debug('script is '+script+'\n')
+//console.debug('script is '+JSON.stringify(script,'','  ')+'\n')
+              }
+              sa = script.split(/ +/)
+//              addr = endian(sa[2])
+              addr = sa[2]
+              addr = pubKeyHash2bitAdd(addr)
+              tr.address = addr
+              res[i].address = addr
+            }
+            if(actualKeys.indexOf(tr.address) >= 0){
+                unspentResult[i] = res[i]
+            }
+        }
+        return unspentResult
+
+    }
     function parseUnspentData(data){
         var i, res, tr, script, sa, addr
         res = JSON.parse(data, '', '  ')
@@ -809,7 +1232,7 @@ alert('about to redeem now')
 
     function homeBalanceShow(){
         var i, b, s, c
-//        s = '' + TotBal 
+//        s = '' + TotBal
 //        s = '<nobr>'+TotBal+' = <font color=green title="Ready to spend">'+ReadyBal+' + <font color=red title="Pending confirmation">'+PendingBal+'</nobr>'
         s = bal2html(TotBal, ReadyBal, PendingBal)
         $('#homeBalanceLabel').html(s)
@@ -847,7 +1270,7 @@ alert('about to redeem now')
         $('#homeSendBalanceAfter').html(ebal)
     }
 
-    function homeSetRedeemInfo(){
+    function homeSetRedeemInfo(privateKeyListener){
         var code, password, fee, rawCode, info
         var dkey, redeem, rand, key, bita, addrArr, addrStr
         code = removeWhiteSpace($('#homeRedeemCode').val())
@@ -864,8 +1287,9 @@ alert('about to redeem now')
             redeem = rawCode.match(/\nredeem: (\S*)/)[1]
             try{ rand = AESdecrypt(redeem, dkey) }
             catch(e){ rand = '' }
-            if (rand != ''){ 
+            if (rand != ''){
                 key = hex2hexKey(hash256(info+rand))
+                if(privateKeyListener != null){privateKeyListener(key)}
                 bita = key2bitAdd(key)
 // now check if the bitcoins are still there
                 addrArr = []
@@ -900,7 +1324,7 @@ alert('about to redeem now')
             unspent[i] = cookUnspentRec(res[i])
         }
         bal = balOfUnspentAddr(unspent)
-        k = Object.keys(bal)[0]
+        var k = Object.keys(bal)[0]
         if (k == undefined){
             b = {}
             b.total = 0
@@ -948,6 +1372,7 @@ alert('about to redeem now')
     function balOfUnspentAddr(unspent){
         var bal, i, t, k, v
         bal = {}
+        bal['total'] = {'total':0, 'ready':0, 'pending':0}
         for(i in unspent){
             t = unspent[i]
             k = t.address
@@ -991,51 +1416,172 @@ alert('about to redeem now')
 //alert($('#debugTransaction').val())
 //        $.post('cgi-bin/send.py', txj, homeSentTx, 'text')
     }
+     // method for getting server to send transaction
+    // transObj - Bitcoin.Transaction.
+    function sendTransaction (transObj, callback){
+        //var txJSON = TX.toBBE (transObj)
+        var tx = transObj.serialize()
+        var txs = {tx: bytes2hex (tx)};
+        var txj = JSON.stringify (txs)
+        $.post ('cgi-bin/send.py', txj, callback, 'text')
+    }
 
     function homeSendTx(){
         var tx, txs, txj
+        var emailTx = null
         if (UI.sendBy == 'email'){
-          if (! homeMakeEmailTx()){ return }
+          emailTx = homeMakeEmailTx()
+          if (! emailTx){
+              console.log("invalid homeMakeEmailTx")
+              return;
+          }
         }
         tx = homeMakeTx()
-        if (tx == undefined){ return; }
+        if (tx == undefined){ console.log("tx == undefined"); return; }
         txs = {tx: tx}
         txj = JSON.stringify(txs)
-//alert(tx)
-        $.post('cgi-bin/send.py', txj, homeSentTx, 'text')
+        alert(tx)
+        //return emailTx
+        $.post('cgi-bin/send.py', txj, handleSentTx(emailTx), 'text')
+    }
+    function transactionEmailSent (data){
+        var result = JSON.parse(data)
+        if(result.status == 'Error'){
+            if(result.pythonerror != null){
+                $("#sendingInfo").html("<p>Error report.</p><pre>"+result.pythonerror+"</pre>")
+            }else{
+                $("#sendingInfo").html("<p>Error report.</p><pre>"+result.error+"</pre>")
+            }
+        }
+        if(result.status == 'OK'){
+            $("#sendingInfo").html("<p>Email sent!</p>")
+            function clearInfo(){
+                $("#sendingInfo").html("")
+                homeSendCancel();
+            }
+            setTimeout(clearInfo, 3000)
+        }
+
+        if(result.status == 'OK'){
+
+        }else{
+            $("#showEmailCodeBtn").removeClass("hide")
+            $("#homeSendSendBtn").hide();
+            $("#homeSendCancelBtn").hide();
+        }
+    }
+    function hideTestEmailModal(){
+        $("#from-email").val('')
+        $("#to-email").val('')
+        $("#email-msg").val('')
+        $(".email-modal-wrapper").hide();
     }
 
-    function homeSentTx(data){
-        var res
-//alert(data)
-        res = JSON.parse(data, '', ' ')
-        if (res.status == 'OK'){
-            alert('Sent\n'+res.message)
-            if (UI.sendBy == 'email'){
-                $('#homeSendToEmail').val('')
-                $('#homeSendTo').val('')
-                $('#homeSendAmount').val('')
-                $('#homeSendFee').val('')
-                $('#homeSendCodeForm').show()
-                $('#homeSendForm').hide()
+    function showTestEmailModal(){
+        $(".email-modal-wrapper").show()
+    }
+
+    function sendTestEmail(){
+        var emailConfig = {
+            email_host: $('#smtpHost').val(),
+            email_port: parseInt($('#smtpPort').val()),
+            email_username: $('#smtpUsername').val(),
+            email_password: $('#smtpPassword').val()
+        }
+        var emailMsg = {
+            sender: $("#from-email").val(),
+            to: $("#to-email").val(),
+            subject: "EZWallet test email.",
+            message: $("#email-msg").val()
+        }
+        function callback(i){
+            console.log('sendemail callback');
+            console.log(i);
+            var result = JSON.parse(i);
+            if(result.status == 'Error'){
+                if(result.pythonerror != null){
+                    $("#test-email-sending-info").html("<p>Error report.</p><pre>"+result.pythonerror+"</pre>")
+                }else{
+                    $("#test-email-sending-info").html("<p>Error report.</p><pre>"+result.error+"</pre>")
+                }
+            }
+            if(result.status == 'OK'){
+                $("#test-email-sending-info").html("<p>Email sent!</p>")
+            }
+
+        }
+        $("#test-email-sending-info").html(WaitingIcon);
+        var buf = { emailConfig: emailConfig, emailMsg: emailMsg}
+        $.post('cgi-bin/testemail.py', JSON.stringify(buf),
+            callback, 'text' )
+    }
+
+    function sendTransactionEmail(emailTx){
+        if (smtpHostPortAvailable()){
+            $("#sendingInfo").html(WaitingIcon)
+            $.post('cgi-bin/emailbitcoins.py', JSON.stringify(emailTx),
+                   transactionEmailSent, 'text')
+        } else {
+            //email msg in dialog
+            alert("SMTP host and port not set.")
+            showEmailCode();
+        }
+    }
+
+    function showEmailCode(){
+        $("#homeSendCancelBtn").show();
+        $("#homeSendSendBtn").show();
+        $("#sendingInfo").html("");
+        $("#showEmailCodeBtn").addClass("hide")
+        $("#homeSendSendBtn").css('visibility','inherit')
+        $('#homeSendToEmail').val('')
+        $('#homeSendTo').val('')
+        $('#homeSendAmount').val('')
+        $('#homeSendFee').val('')
+        $("#homeSendMessage").val('')
+        $("#homeSendPassword").val('')
+        $('#homeSendBalanceAfter').html('')
+        $('#homeSendCodeForm').show()
+        $('#homeSendCode').select()
+        $('#homeSendForm').hide()
+    }
+
+    function handleSentTx(emailTx){
+        function homeSentTx(data){
+            var res = JSON.parse(data, '', ' ')
+            if (res.status == 'OK'){
+                alert('Sent\n'+res.message)
+                if (UI.sendBy == 'email'){
+                    if (emailTx != null){
+                        console.log(emailTx);
+                        alert('emailTx:\n'+emailTx.code+'\n'+
+                             emailTx.sender+'\n'+
+                             emailTx.to);
+                        sendTransactionEmail(emailTx)
+                    }else{
+                        showEmailCode();
+                    }
+                }
+                else{
+                    $('#debugSendResult').val(res.message)
+                    $('#homeSendTo').val('')
+                    $('#homeSendAmount').val('')
+                    $('#homeSendFee').val('')
+                    $('#homeSendBalanceAfter').html('')
+                    $('#homeMainForm').show()
+                    $('#homeSendForm').hide()
+                }
+                //TODO mark the Unspent transactions so that we don't try to spend them again.
+                //   actually, it should be in the network as an unconfirmed transaction, so we
+                //   just need to refresh the balance.
+                homeUpdateBalance()
             }
             else{
-                $('#debugSendResult').val(res.message)
-                $('#homeSendTo').val('')
-                $('#homeSendAmount').val('')
-                $('#homeSendFee').val('')
-                $('#homeMainForm').show()
-                $('#homeSendForm').hide()
+                $('#debugSendResult').val(res.error)
+                alert('Error: '+res.error)
             }
-            //TODO mark the Unspent transactions so that we don't try to spend them again.
-            //   actually, it should be in the network as an unconfirmed transaction, so we
-            //   just need to refresh the balance.
-            homeUpdateBalance()
         }
-        else{
-            $('#debugSendResult').val(res.error)
-            alert('Error: '+res.error)
-        }
+        return homeSentTx
     }
 
     function homeMakeTx(){
@@ -1050,7 +1596,7 @@ alert('about to redeem now')
         }
         amount = parseFloat(removeWhiteSpace($('#homeSendAmount').val()))
         if (isNaN(amount)){ alert('Amount must be given.'); return }
-        to = to+' '+amount
+        to = to+' '+amount.toFixed(12);
 //        from = removeWhiteSpace($('#homeSendFrom').val())
         from = ''
         fee = parseFloat(removeWhiteSpace($('#homeSendFee').val()))
@@ -1094,7 +1640,7 @@ From: email of sender
 Amount: BTC amount being sent
 Date: date and time in UTC of when the send was initiated
 Message: an optional message from the sender to the recipient
-Redeem: the private key encrypted with a password provided by the sender or if no password 
+Redeem: the private key encrypted with a password provided by the sender or if no password
         was provided then encrypted with the recipients email address
 Recover: the private key encrypted with a private key owned by the sender, used if the
         recipient does not redeem and the sender wants to recover the bitcoins
@@ -1109,7 +1655,7 @@ The private key needed to decrypt the Recover field of the above message will al
 be in the senders EZWallet.
 
 If the sender does not add a password then anyone who intercepts the email
-can redeem the bitcoins. If the recipient redeems the bitcoins first, the 
+can redeem the bitcoins. If the recipient redeems the bitcoins first, the
 email will not be of use to anyone intercepting it. Adding a password should be
 highly recommended, even though it adds some inconvience of having to tell the
 recipient the password by phone.
@@ -1119,10 +1665,10 @@ recipient the password by phone.
       var to, from, amount, date, message, rawCode, rand, key, bita, pw
       var k1, redeem, recover, code
       to = removeWhiteSpace($('#homeSendToEmail').val().toLowerCase())
-      if (to == ''){ alert('To Email must be given.'); return 0 }
+      if (to == ''){ alert('To Email must be given.'); return null; }
       from = G.email
       amount = parseFloat(removeWhiteSpace($('#homeSendAmount').val()))
-      if (isNaN(amount)){ alert('Amount must be given.'); return 0 }
+      if (isNaN(amount)){ alert('Amount must be given.'); return null;}
       date = new Date().toUTCString()
       message =  trimWhiteSpace($('#homeSendMessage').val())
       pw = trimWhiteSpace($('#homeSendPassword').val())
@@ -1142,7 +1688,6 @@ Message: "+message+"\n\
       key = hex2hexKey(hash256(rawCode+rand))
 // convert to bitcoin address
       bita = key2bitAdd(key)
-// 
       if (pw == ''){ pw = to }
       k1 = seed2key(Seed.main, 0)
       redeem = AESencrypt(rand, pw)
@@ -1166,9 +1711,73 @@ rand: "+rand+"\n\
       $('#homeSendTo').val(bita)
 //alert($('#homeSendTo').val())
 
-      return 1
+      return {to:to, sender: from, code: code} //code = transaction code.
     }
 
+     // private bitcoin key in hexadecimal format.
+    function addPrivateKey(privKey){
+        var pbKey = key2pubKey(privKey)
+        var btcAddr = pubKey2bitAdd(pbKey);
+        Keys[btcAddr] = privKey
+        Bal[btcAddr] = 0.0
+    }
+
+    // add hexadecimal private bitcoin key to imported keys.
+    function addImportedKey(privKey){
+        var pbKey = key2pubKey (privKey)
+        var btcAddr = pubKey2bitAdd(pbKey);
+        ImportedKeys[btcAddr] = privKey;
+        addPrivateKey (privKey)
+    }
+
+    // transfers all bitcoins from imported keys into ezwallet keys
+    function transferFromImportedToEZWallet(fee, callback){
+         var iAddrs = []
+        for(var k in ImportedKeys){
+            iAddrs.push(k)
+        }
+        function sTransactionCallback (data){
+            if(data != null)advancedSentTx (data);
+            if (callback != null){
+                callback(data)
+
+            }
+        }
+        function createTransfer(totalAmt){
+             var firstAddy, secondAddy;
+            for(var k in Keys){
+                if(firstAddy == null){ firstAddy = k; continue;}
+                if(secondAddy == null){ secondAddy = k; break;}
+            }
+            totalAmt -= fee
+            if (totalAmt <= 0){
+                alert("Not enough confirmed bitcoins.")
+                return
+            }
+            var transObj = makeTxObjBase (iAddrs.join(" "), firstAddy+" "+totalAmt, secondAddy, fee, true)
+            if(transObj == null){
+                sTransactionCallback (null)
+                return;
+            }
+            sendTransaction (transObj, sTransactionCallback)
+        }
+
+        function unspentCallback(d){
+            var totalAmt = 0
+            for( var k in d){
+                if (d[k].address != null){
+                    if(d[k].block > 0){
+                        totalAmt += d[k].value
+                    }
+                }
+            }
+            createTransfer(totalAmt)
+        }
+        function getPrivateKeySpentInfo(){
+            getUnspentBalance(iAddrs, unspentCallback)
+        }
+        updateAllSpentInfo(getPrivateKeySpentInfo)
+     }
     // --- Advanced ---
 
     function advancedEZBtn(){
@@ -1237,10 +1846,7 @@ rand: "+rand+"\n\
         Seed.main = hash256(Seed.master+'main')
         for(i=0; i<Wsize; i++){
           k1 = seed2key(Seed.main, i)
-          p1 = key2pubKey(k1)
-          b1 = pubKey2bitAdd(p1)
-          Keys[b1] = k1
-          Bal[b1] = 0.0
+          addPrivateKey(k1)
         }
       }
       if (UI.walletType == 'keys'){
@@ -1258,24 +1864,81 @@ alert('not yet implemented'); return
           w = ws[i]
           k1 = ''
           if (w.length < 40){ continue } // even in base64 the length of a key will be >40
-          if ((w.length == 64) && (! w.match(/[^0-9A-Fa-f]/))){ k1 = w } 
+          if ((w.length == 64) && (! w.match(/[^0-9A-Fa-f]/))){ k1 = w }
           if ((w.length == 51 || w.length == 44) && (! w.match(/[^0-9A-Za-z]/)) && (! w.match(/[0IOl]/))){ k1 = base582hex(w) }
           if (w.length == 44 && k1==''){ k1 = base642hex(w) }
           if (k1 != ''){
-            p1 = key2pubKey(k1)
-            b1 = pubKey2bitAdd(p1)
-            Keys[b1] = k1
-            Bal[b1] = 0.0
+             addPrivatekey(k1)
           }
         }
       }
       if (UI.walletType == 'electrum'){
-alert('not implemented yet'); return
+        Wsize = parseInt($('#advancedRange').val())
+        if (isNaN(Wsize)){ Wsize = WsizeDefault }
+        if (Wsize > WsizeMax){ Wsize = WsizeMax; alert('Keys in wallet limited to '+WsizeMax) }
+        var s = $("#advancedSecret").val()
+        if (s.split(" ").length > 2) s = mn_decode(s);
+        var cnt = 0
+        function processKey(r){
+            k1 = base582hex(r[1])
+            addPrivateKey(k1);
+            cnt++
+            if(cnt==Wsize){
+                $("#advancedWalletWaitingIcon").html('')
+                advancedNewKeys(Keys)
+            }
+        }
+
+        function stretchingUpdate(amt){
+            //console.log(amt)
+        }
+        $("#advancedWalletWaitingIcon").html(WaitingIcon)
+        Electrum.init(s, stretchingUpdate,
+                     function(){Electrum.gen(Wsize, processKey)})
+        return
+
       }
       if (UI.walletType == 'armory'){
-alert('not implemented yet'); return
+        Wsize = parseInt($('#advancedRange').val())
+        if (isNaN(Wsize)){ Wsize = WsizeDefault }
+        if (Wsize > WsizeMax){ Wsize = WsizeMax; alert('Keys in wallet limited to '+WsizeMax) }
+        var s = $("#advancedSecret").val()
+        if (s.split(" ").length < 2){
+            var buf = Crypto.util.hexToBytes(s)
+            var privKiy = buf.slice(32, 64)
+            var chainCode = buf.slice(0,32)
+            s = armory_encode_keys(privKiy, chainCode)
+        }
+        var cnt = 0
+        function processKey(r){
+            k1 = base582hex(r[1])
+            p1 = key2pubKey(k1);
+            b1 = pubKey2bitAdd(p1)
+            Keys[b1] = k1
+            Bal[b1] = 0.0
+            cnt++
+            if(cnt==Wsize){
+                $("#advancedWalletWaitingIcon").html('')
+                advancedNewKeys(Keys)
+            }
+        }
+        $("#advancedWalletWaitingIcon").html(WaitingIcon)
+        var i = Armory.gen(s, Wsize, processKey)
+        if(i==null){
+            $("#advancedWalletWaitingIcon").html('')
+            alert("Invalid Armory Seed.")
+        }
+        return
       }
       if (! $.isEmptyObject(Keys)){
+        advancedNewKeys (Keys)
+      }
+      else{
+alert('No keys found.')
+      }
+    }
+
+    function advancedNewKeys(keys){
         $('#advancedOpenForm').hide()
         $('#advancedMainForm').show()
         $('#advancedEmail').val('')
@@ -1283,12 +1946,8 @@ alert('not implemented yet'); return
         $('#advancedWalletPassword').val('')
         $('#advancedSecret').val('')
         $('#advancedSessionPin').val('')
-        $('#debugKeys').val(JSON.stringify(Keys, '', '  '))
+        $('#debugKeys').val(JSON.stringify(keys, '', '  '))
         advancedUpdateBalance()
-      }
-      else{
-alert('No keys found.')
-      }
     }
 
     function advancedSendForm(){
@@ -1316,6 +1975,7 @@ alert('No keys found.')
         var addrArr, addrStr, ba, s
         addrArr = []
         for(ba in Keys){
+            var kk = bigInt2ECKey(hex2bigInt(Keys[ba]))
             addrArr.push(ba)
         }
         $('#advancedBalanceLabel').html(WaitingIcon)
@@ -1332,7 +1992,7 @@ alert('No keys found.')
 
     function advancedBalanceShow(){
         var i, b, s
-//        s = '' + TotBal 
+//        s = '' + TotBal
 //        s = '<nobr>'+TotBal+' = <font color=green title="Ready to spend">'+ReadyBal+' + <font color=red title="Pending confirmation">'+PendingBal+'</nobr>'
         s = bal2html(TotBal, ReadyBal, PendingBal)
         $('#advancedBalanceLabel').html(s)
@@ -1628,8 +2288,8 @@ alert('No keys found.')
 
         var sec = $('#sec').val();
 
-        try { 
-            var res = parseBase58Check(sec); 
+        try {
+            var res = parseBase58Check(sec);
             var version = res[0];
             var payload = res[1];
         } catch (err) {
@@ -1703,7 +2363,7 @@ alert('No keys found.')
     function issubset(a, ssv) {
         var b = ssv.trim().split(' ');
         for (var i = 0; i < b.length; i++) {
-            if (a.indexOf(b[i].toLowerCase()) == -1 
+            if (a.indexOf(b[i].toLowerCase()) == -1
                 && a.indexOf(b[i].toUpperCase()) == -1)
             return false;
         }
@@ -1712,13 +2372,13 @@ alert('No keys found.')
 
     function autodetect(str) {
         var enc = [];
-        if (isHex(str)) 
+        if (isHex(str))
             enc.push('hex');
         if (isBase58(str))
             enc.push('base58');
-        if (issubset(mn_words, str)) 
+        if (issubset(mn_words, str))
             enc.push('mnemonic');
-        if (issubset(rfc1751_wordlist, str)) 
+        if (issubset(rfc1751_wordlist, str))
             enc.push('rfc1751');
         if (isBase64(str))
             enc.push('base64');
@@ -1769,8 +2429,8 @@ alert('No keys found.')
 
         if (bytes.length > 0) {
             if (from == 'base58') {
-                try { 
-                    var res = parseBase58Check(str); 
+                try {
+                    var res = parseBase58Check(str);
                     type = 'Check ver.' + res[0];
                     bytes = res[1];
                 } catch (err) {
@@ -1806,7 +2466,7 @@ alert('No keys found.')
                 text = mn_encode(Crypto.util.bytesToHex(bytes));
             } else if (to == 'base64') {
                 text = Crypto.util.bytesToBase64(bytes);
-            } 
+            }
         }
 
         $('#hint_from').text(enct(from) + type + ' (' + bytes.length + ' byte' + (bytes.length == 1 ? ')' : 's)'));
@@ -2043,7 +2703,7 @@ alert('No keys found.')
         var addr = '';
 
         try {
-            var res = parseBase58Check(sec); 
+            var res = parseBase58Check(sec);
             var version = res[0];
             var payload = res[1];
             var compressed = false;
@@ -2071,7 +2731,7 @@ alert('No keys found.')
         clearTimeout(timeout);
         timeout = setTimeout(txGenSrcAddr, TIMEOUT);
     }
-    
+
     function txSetUnspent(text) {
         var r = JSON.parse(text);
         txUnspent = JSON.stringify(r, null, 4);
@@ -2204,7 +2864,7 @@ alert(tx)
         var fee = parseFloat('0'+$('#txFee').val());
 
         try {
-            var res = parseBase58Check(sec); 
+            var res = parseBase58Check(sec);
             var version = res[0];
             var payload = res[1];
         } catch (err) {
@@ -2323,7 +2983,7 @@ alert(tx)
         var eckey = null;
         var compressed = false;
         try {
-            var res = parseBase58Check(sec); 
+            var res = parseBase58Check(sec);
             var version = res[0];
             var payload = res[1];
             if (payload.length > 32) {
@@ -2414,6 +3074,30 @@ alert(tx)
         $.post('cgi-bin/settings.py', jos, settingsGetShow, 'text')
     }
 
+    var SmtpInitiated = false
+    function smtpSettingsSet(e){
+        var p = $("#smtpPort").val()
+        if (p != '' && isNaN(parseInt(p))){
+            alert("Port must be a number.")
+            return;
+        }
+        e.data = {}
+        e.data.f = 'email'
+        e.data.v = {
+            host: $("#smtpHost").val(),
+            port: $("#smtpPort").val(),
+            username: $("#smtpUsername").val(),
+            password: $("#smtpPassword").val()
+        }
+        SmtpInitiated = true
+        settingsSet(e)
+    }
+
+    function smtpSettingsDone(){
+        alert("Setting updated.")
+
+    }
+
     function settingsSet(e){
 //      alert(e.data.f + ' ' +e.data.v)
         var jo, jos, ba, s
@@ -2429,12 +3113,21 @@ alert(tx)
     var SettingsPasswordHash = ''
     function settingsGetShow(data){
         res = JSON.parse(data, '', '  ')
+        var isError = false;
         if (res.status == 'Error'){
+          isError = true;
           alert(res.message)
         }
         $('#settingsSendBtn_'+res.send).button('toggle')
         $('#settingsUnspentBtn_'+res.unspent).button('toggle')
+        $("#smtpHost").val(res.smtphost)
+        $("#smtpPort").val(res.smtpport)
+        $("#smtpUsername").val(res.smtpusername)
         SettingsPasswordHash = res.hash
+        if (SmtpInitiated){
+            if(isError == false) smtpSettingsDone();
+            SmtpInitiated = false;
+        }
     }
 
     $(document).ready( function() {
@@ -2456,6 +3149,7 @@ alert(tx)
         $('#homeSendCodeDoneBtn').click(homeSendCodeDone);
         $('#homeSendCancelBtn').click(homeSendCancel);
         $('#homeSendSendBtn').click(homeSendTx);
+        $("#showEmailCodeBtn").click(showEmailCode);
         $('#homeScanBtn').click(homeScan);
         $('#homeScanCloseBtn').click(homeScanClose);
         $('#homeReceiveBtn').click(homeReceiveForm);
@@ -2464,6 +3158,7 @@ alert(tx)
         $('#homeRedeemCancelBtn').click(homeRedeemCancel);
         $('#homeRedeemNowBtn').click(homeRedeemNow);
         $('#homeRecoverBtn').click(homeRecoverForm);
+        $('#homeRecoverNowBtn').click (homeRecoverNow)
         $('#homeRecoverCancelBtn').click(homeRecoverCancel);
         $('#homeReloadBalBtn').click(homeUpdateBalance);
 //        $('#homeSendShowBtn').click(homeSendShowTx);
@@ -2471,6 +3166,8 @@ alert(tx)
         onInput($('#homeSendFee'), homeSetBalanceAfterSend);
         onInput($('#homeRedeemCode'), homeSetRedeemInfo);
         onInput($('#homeRedeemPassword'), homeSetRedeemInfo);
+        onInput($('#homeRecoverCode'), homeSetRecoverInfo);
+        onInput($("#homeRecoverEmail"), homeSetRecoverInfo);
 
 
         // advanced
@@ -2500,8 +3197,13 @@ alert(tx)
         $('#settingsUnspentBtn_electrum').click({f:'unspent', v:'electrum'}, settingsSet);
         $('#settingsUnspentBtn_blockexplorer').click({f:'unspent', v:'blockexplorer'}, settingsSet);
 
+        $('#smtpSettingsBtn').click(smtpSettingsSet);
 
-
+        $("#send-test-email-btn").click(sendTestEmail);
+        $("#cancel-test-email-btn").click(hideTestEmailModal);
+        $("#smtpTestBtn").click(showTestEmailModal);
+        hideTestEmailModal();
+        $(".email-modal-wrapper").css("visibility","visible");
 /*
         // generator
 

@@ -15,7 +15,3 @@ The goal of this project is to build such a wallet. A wallet that is easy to use
 
 You can try it out here: http://arimaa.com:9696
 
-Enjoy!
-
-
-

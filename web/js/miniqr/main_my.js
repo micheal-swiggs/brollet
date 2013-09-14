@@ -87,14 +87,18 @@
     videoPreSuccess = function(video, stream) {
       Miniqr.stream = stream;
       Miniqr.video = video;
+      console.log('stream')
+      console.log(stream)
+      console.log('video')
+      console.log(video)
       scan(video, canvas, ctx, options);
       return videoSuccess(video, stream);
     };
     return Sinne.getUserVideo(videoPreSuccess, videoError, options);
   };
 
-  Miniqr.stop = function(){ 
-    Miniqr.stopflag = true; 
+  Miniqr.stop = function(){
+    Miniqr.stopflag = true;
     if (Miniqr.video != null){ Miniqr.video.pause() }
     if (Miniqr.stream != null){ Miniqr.stream.stop() } // this turns the camera off, but doesnt work on Opera mobil
   }

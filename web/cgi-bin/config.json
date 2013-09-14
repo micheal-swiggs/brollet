@@ -1,1 +1,1 @@
-{"unspent": "blockchain", "x": "", "password": "change", "send": "blockchain"}
+{"unspent": "blockchain", "x": "", "password": "change1", "email": {"username": "username", "host": "smtp.live.com", "password": "password", "port": "587"}, "send": "blockchain"}
