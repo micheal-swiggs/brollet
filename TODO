@@ -1,4 +1,26 @@
 
+Add a button on the Balance page to view 'Transactions'. Clicking this should
+open a 'Transactions' area that shows a history of the transactions with the columns:
+DateTime Address Amount Fee
+If the amount is sent from one of our address then the amount value should be in red.
+If the amount is received by one of our address then the amount value should be in green.
+The Fee is only shown when the amount is being sent from one of our address.
+Use WATables http://wootapa-watable.appspot.com/ to display the data.
+There should be a 'Back' button to return back to the Balance page.
+
+The Settings page currently shows all the settings and requires a password
+to change any setting value. Modify it so that it does not show any settings
+until a password is entered. So going to the Settings page should only show
+a field to enter the password. If it is entered correctly then the settings are
+shown. The password can be stored as a variable in JavaScript and does not need
+to be entered again to change the settings. Provide a 'Close' button at the bottom
+of the Settings page so that clicking on it causes the password to be deleted
+from JavaScript and the Settings page again shows only a field to enter the
+password.
+
+
+==== Done ====
+
 Fix the problem with transactions getting rejected sometimes.
 
 Add the QR code scanning feature for browsers that support it with HTML5. Opera seems to support it.
