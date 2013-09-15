@@ -1,17 +1,22 @@
-ew
+EZWallet
 ==
 
 EZWallet
+==
 
-The biggest problem faced by anyone wanting to get started with bitcoin is how to store the priviate keys linked to the public bitcoin addresses. 
+A very secure, deterministic, online and offline wallet.
 
-The most common approach is to store the keys in a file and encrypt the file. But this has the problem that if the file is lost due to a disk failure, disaster or stolen computer the bitcoins are lost.
+* EZWallet can be run on your local PC or Mac, but does not require downloading the blockchain to send or receive bitcoins.
 
-Another approach is to use a web service that manages your wallet for you. This requires you to depend on the web service always being available. Also you have to trust that the service provider will remain honest and not vanish with everyones bitcoins. If the web service shuts down then your bitcoins are lost.
+* EZWallet can be hosted on a VPS so you can access it from anywhere with any browser or mobile device.
 
-The safest approch is to use a deterministic wallet so that private keys can be generated from a seed and do not need to be stored. The source code for this wallet should be viewable/readable and under your control. Ideally the wallet code should be able to run completely within a web browser using only HTML5 and JavaScript without any dependencies on plugins or code that is not viewable. It would be even nicer if the same code base worked in FireFox, Chrome and Opera and could be used on Window, Mac, Linux, iPhone and Android.
+* EZWallet is deterministic. Your passphrase is used to generate all your bitcoin addresses. Your passphrase is your wallet access. To backup your wallet, just backup your passphrase. No wallet file is used so there is no change of the wallet file being lost or stolen.
 
-The goal of this project is to build such a wallet. A wallet that is easy to use and provides safe storage.
+* EZWallet support the Electurm and Armory wallets formats as well as importing keys from a wallet file.
+
+* EZWallet supports sending bitcoins to anyone with an email address. They will receive an email with instructions on how to redeem the bitcoins that have been sent. No centeral server or 3rd party is used in the process. If the recipient does not redeem the bitcoins the sender can recover them again.
+
+* EZWallet source code is freely available and completely under your control. No dependancy on a 3rd party to host your online wallet.
 
 You can try it out here: http://arimaa.com:9696
 

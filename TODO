@@ -2,9 +2,12 @@
 Add a button on the Balance page to view 'Transactions'. Clicking this should
 open a 'Transactions' area that shows a history of the transactions with the columns:
 DateTime Address Amount Fee
+The Address would only show our address and not the other persons address.
 If the amount is sent from one of our address then the amount value should be in red.
 If the amount is received by one of our address then the amount value should be in green.
 The Fee is only shown when the amount is being sent from one of our address.
+The TransID field should be the bitcoin transaction ID and link to the transaction
+page at blockchain.info.
 Use WATables http://wootapa-watable.appspot.com/ to display the data.
 There should be a 'Back' button to return back to the Balance page.
 
@@ -18,6 +21,10 @@ of the Settings page so that clicking on it causes the password to be deleted
 from JavaScript and the Settings page again shows only a field to enter the
 password.
 
+Change the Test Email script so that it requires the correct Settings page password
+before it will send the email. The Test Email form on the Settings page
+should include the password. This is to prevent the Test Email script from being
+used by spammers to send emails.
 
 ==== Done ====
 
