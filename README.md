@@ -1,16 +1,13 @@
 EZWallet
 ==
 
-EZWallet
-==
-
-A very secure, deterministic, online and offline wallet.
+A secure, deterministic, online and offline wallet.
 
 * EZWallet can be run on your local PC or Mac, but does not require downloading the blockchain to send or receive bitcoins.
 
 * EZWallet can be hosted on a VPS so you can access it from anywhere with any browser or mobile device.
 
-* EZWallet is deterministic. Your passphrase is used to generate all your bitcoin addresses. Your passphrase is your wallet access. To backup your wallet, just backup your passphrase. No wallet file is used so there is no change of the wallet file being lost or stolen.
+* EZWallet is a deterministic brain wallet. Your passphrase is used to generate all your bitcoin addresses. To backup your wallet, just backup your passphrase. No wallet file is used so there is no change of the wallet file being lost or stolen.
 
 * EZWallet support the Electurm and Armory wallets formats as well as importing keys from a wallet file.
 
