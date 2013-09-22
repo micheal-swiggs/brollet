@@ -19,11 +19,7 @@ import string
 import random
 import json
 from subprocess import Popen, PIPE, STDOUT
-
-def readConf():
-  c = open('cgi-bin/config.json', 'r').read()
-  o = json.loads(c)
-  return o
+import access
 
 def writeConf(o):
   c = json.dumps(o)
@@ -37,6 +33,17 @@ def shell(cmd):
 def randString(size=6, chars=string.ascii_uppercase + string.digits):
   return ''.join(random.choice(chars) for x in range(size))
 
+def currentConfiguration(conf):
+  send = conf.get('send', '')
+  unspent = conf.get('unspent', '')
+  emailSettings = conf.get('email','')
+  smtphost = emailSettings.get('host', '')
+  smtpport = emailSettings.get('port', '')
+  smtpusername = emailSettings.get('username','')
+  res = {'status':'OK', 'message':'Current settings:', 'send':send, 'unspent':unspent,
+         'smtphost':smtphost, 'smtpport': smtpport, 'smtpusername': smtpusername}
+  print json.dumps(res)
+  sys.exit()
 
 print "Content-type: text/plain\n"
 
@@ -56,96 +63,51 @@ except Exception:
 
 print >> sys.stderr, rawinp
 
-#print myaddresses
-
-savedpassword = 'abc'
+conf = access.readConf()
+savedpassword = conf.get('password', 'change')
+password = inp.get('password', '')
+if not access.validPassword(password): access.incorrectPassword()
 
 action = inp.get('action', '')
 
-if (action == 'get'):
-  conf = readConf()
-#  conf = {"a":"a"}
-  send = conf.get('send', '')
-  unspent = conf.get('unspent', '')
-  password = conf.get('password','change')
-  emailSettings = conf.get('email','')
-  smtphost = emailSettings.get('host', '')
-  smtpport = emailSettings.get('port', '')
-  smtpusername = emailSettings.get('username','')
-  if (password == 'change'): password = randString(30)
-  hash = hashlib.sha256(password).hexdigest()
-  res = {'status':'OK', 'message':'Current settings:', 'send':send, 'unspent':unspent,
-         'smtphost':smtphost, 'smtpport': smtpport, 'smtpusername': smtpusername}
-  print json.dumps(res)
-  sys.exit()
+if (action == 'get'): currentConfiguration(conf)
 
-# check the password before making changes
-conf = readConf()
-savedpassword = conf.get('password','change')
-password = inp.get('password', '')
-send = conf.get('send', '')
-unspent = conf.get('unspent', '')
 emailSettings = conf.get('email','')
-smtphost = emailSettings.get('host', '')
-smtpport = emailSettings.get('port', '')
-smtpusername = emailSettings.get('username','')
-
-if password != savedpassword or savedpassword == 'change':
-  res = {'status':'Error', 'message':'Incorrect password.', 'send':send, 'unspent':unspent,
-         'smtphost':smtphost, 'smtpport': smtpport, 'smtpusername': smtpusername}
-  print json.dumps(res)
-  sys.exit()
-
 
 if (action == 'set'):
-#  res = {'status':'Error', 'message':'No file found. '}
-#  print json.dumps(res)
-#  sys.exit()
 
-  conf = readConf()
-  field = inp.get('field', '')
   value = inp.get('value', '')
   if value == '':
     res = {'status':'Error', 'message':'No value given.'}
     print json.dumps(res)
     sys.exit()
-  if field == 'send':
-    if not os.path.isfile("cgi-bin/send.py_"+value):
-      res = {'status':'Error', 'message':'No file found. '+value}
-      print json.dumps(res)
-      sys.exit()
-    shell("cp cgi-bin/send.py_"+value+" cgi-bin/send.py")
-    conf['send'] = value
-  if field == 'email':
-    oldSmtpPassword = emailSettings.get('password','')
-    newSmtpPassword = value.get('password','')
-    if newSmtpPassword == '':
-      value['password'] = oldSmtpPassword
-    conf['email'] = value
-  if field == 'unspent':
-    if not os.path.isfile("cgi-bin/unspent.py_"+value):
-      res = {'status':'Error', 'message':'No file found.'+value}
-      print json.dumps(res)
-      sys.exit()
-    shell("cp cgi-bin/unspent.py_"+value+" cgi-bin/unspent.py")
-    conf['unspent'] = value
+
+  sendVal = value['send']
+  if not os.path.isfile("cgi-bin/send.py_"+sendVal):
+    res = {'status':'Error', 'message':'No file found. '+sendVal}
+    print json.dumps(res)
+    sys.exit()
+  shell("cp cgi-bin/send.py_"+sendVal+" cgi-bin/send.py")
+  conf['send'] = sendVal
+
+  emailVal = value['email']
+  oldSmtpPassword = emailSettings.get('password','')
+  newSmtpPassword = emailVal.get('password','')
+  if newSmtpPassword == '':
+    emailVal['password'] = oldSmtpPassword
+  conf['email'] = emailVal
+
+  unspentVal = value['unspent']
+  if not os.path.isfile("cgi-bin/unspent.py_"+unspentVal):
+    res = {'status':'Error', 'message':'No file found.'+unspentVal}
+    print json.dumps(res)
+    sys.exit()
+  shell("cp cgi-bin/unspent.py_"+unspentVal+" cgi-bin/unspent.py")
+  conf['unspent'] = unspentVal
+
   writeConf(conf)
-  send = conf.get('send', '')
-  unspent = conf.get('unspent', '')
-  password = conf.get('password','change')
-  emailSettings = conf.get('email','')
-  smtphost = emailSettings.get('host', '')
-  smtpport = emailSettings.get('port', '')
-  smtpusername = emailSettings.get('username','')
-  if (password == 'change'): password = randString(30)
-  hash = hashlib.sha256(password).hexdigest()
-  res = {'status':'OK', 'message':'Current settings:', 'send':send, 'unspent':unspent,
-         'smtphost':smtphost, 'smtpport': smtpport, 'smtpusername': smtpusername}
-  print json.dumps(res)
-  sys.exit()
+  currentConfiguration(conf)
 
-
-#res = {'status':'OK', 'message':'got it'}
 res = {'status':'Error', 'message':'no action'}
 print json.dumps(res)
 sys.exit()

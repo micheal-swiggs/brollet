@@ -1471,14 +1471,16 @@ function compareBlockDesc(a, b){
         }
     }
     function hideTestEmailModal(){
-        $("#from-email").val('')
-        $("#to-email").val('')
-        $("#email-msg").val('')
+        $("#from-email").val('');
+        $("#to-email").val('');
+        $("#email-msg").val('');
+        $("#email-password").val('');
+        $("#test-email-sending-info").html('');
         $(".email-modal-wrapper").hide();
     }
 
     function showTestEmailModal(){
-        $(".email-modal-wrapper").show()
+        $(".email-modal-wrapper").show();
     }
 
     function sendTestEmail(){
@@ -1486,7 +1488,7 @@ function compareBlockDesc(a, b){
             email_host: $('#smtpHost').val(),
             email_port: parseInt($('#smtpPort').val()),
             email_username: $('#smtpUsername').val(),
-            email_password: $('#smtpPassword').val()
+            email_password: $('#smtpPassword').val(),
         }
         var emailMsg = {
             sender: $("#from-email").val(),
@@ -1501,8 +1503,10 @@ function compareBlockDesc(a, b){
             if(result.status == 'Error'){
                 if(result.pythonerror != null){
                     $("#test-email-sending-info").html("<p>Error report.</p><pre>"+result.pythonerror+"</pre>")
-                }else{
+                }else if(result.error != null){
                     $("#test-email-sending-info").html("<p>Error report.</p><pre>"+result.error+"</pre>")
+                }else{
+                    $("#test-email-sending-info").html("<p>Error report.</p><pre>"+result.message+"</pre>")
                 }
             }
             if(result.status == 'OK'){
@@ -1511,7 +1515,7 @@ function compareBlockDesc(a, b){
 
         }
         $("#test-email-sending-info").html(WaitingIcon);
-        var buf = { emailConfig: emailConfig, emailMsg: emailMsg}
+        var buf = { emailConfig: emailConfig, emailMsg: emailMsg, password: $("#email-password").val()};
         $.post('cgi-bin/testemail.py', JSON.stringify(buf),
             callback, 'text' )
     }
@@ -3067,14 +3071,45 @@ alert(tx)
     }
 
     function settingsGet(){
-        var jo, jos, ba, s
+        var jo, jos;
         jo = {}
         jo.action = 'get'
         jos = JSON.stringify(jo)
         $.post('cgi-bin/settings.py', jos, settingsGetShow, 'text')
     }
 
-    var SmtpInitiated = false
+    function settingsLogin(){
+        var pword = $("#login-password").val();
+        var jo = {action: 'get', password: pword};
+        var jos = JSON.stringify(jo);
+        function testCallback(arg){
+            var result = JSON.parse(arg);
+            if(result.status == 'Error'){
+                alert(result.message);
+            }else{
+                settingsGetShow(arg);
+                $("#login-password").val('');
+                $("#settings-actual-li").show();
+                $("#settings-li").hide();
+                $("#settingsActual").click();
+            }
+            //settingsGetShow(arg)
+        }
+        $.post('cgi-bin/settings.py', jos, testCallback, 'text');
+    }
+
+    function hideSettingsActual(){
+        $("#settings-actual-li").hide();
+        $("#settings-li").show();
+        $("#settingsSend .btn").removeClass('active');
+        $("#settingsUnspent .btn").removeClass('active');
+        $("#smtpHost").val('');
+        $("#smtpPort").val('');
+        $("#smtpUsername").val('');
+        $("#smtpPassword").val('');
+        $("#settings-password-change").val('');
+    }
+
     function smtpSettingsSet(e){
         var p = $("#smtpPort").val()
         if (p != '' && isNaN(parseInt(p))){
@@ -3082,35 +3117,39 @@ alert(tx)
             return;
         }
         e.data = {}
-        e.data.f = 'email'
         e.data.v = {
-            host: $("#smtpHost").val(),
-            port: $("#smtpPort").val(),
-            username: $("#smtpUsername").val(),
-            password: $("#smtpPassword").val()
+            send: $("#settingsSend .active").attr('data-val'),
+            unspent: $("#settingsUnspent .active").attr('data-val'),
+            email: {
+                host: $("#smtpHost").val(),
+                port: $("#smtpPort").val(),
+                username: $("#smtpUsername").val(),
+                password: $("#smtpPassword").val()
+            }
         }
-        SmtpInitiated = true
         settingsSet(e)
     }
 
-    function smtpSettingsDone(){
-        alert("Setting updated.")
 
+    function settingsSetCallback(data){
+        var res = JSON.parse(data, '', '  ');
+        if(res.status == 'Error'){
+            alert(res.message);
+        }else{
+            alert("Settings updated.");
+        }
     }
-
     function settingsSet(e){
 //      alert(e.data.f + ' ' +e.data.v)
         var jo, jos, ba, s
         jo = {}
         jo.action = 'set'
-        jo.field = e.data.f
         jo.value = e.data.v
-        jo.password = $('#settingsPassword').val()
+        jo.password = $('#settings-password-change').val()
         jos = JSON.stringify(jo)
-        $.post('cgi-bin/settings.py', jos, settingsGetShow, 'text')
+        $.post('cgi-bin/settings.py', jos, settingsSetCallback, 'text')
     }
 
-    var SettingsPasswordHash = ''
     function settingsGetShow(data){
         res = JSON.parse(data, '', '  ')
         var isError = false;
@@ -3123,11 +3162,6 @@ alert(tx)
         $("#smtpHost").val(res.smtphost)
         $("#smtpPort").val(res.smtpport)
         $("#smtpUsername").val(res.smtpusername)
-        SettingsPasswordHash = res.hash
-        if (SmtpInitiated){
-            if(isError == false) smtpSettingsDone();
-            SmtpInitiated = false;
-        }
     }
 
     $(document).ready( function() {
@@ -3190,20 +3224,18 @@ alert(tx)
 
         $('#debugShowKeys').click(debugShowKeys);
 
-        $('#settingsLink').click(settingsInit);
-        $('#settingsSendBtn_blockchain').click({f:'send', v:'blockchain'}, settingsSet);
-        $('#settingsSendBtn_electrum').click({f:'send', v:'electrum'}, settingsSet);
-        $('#settingsUnspentBtn_blockchain').click({f:'unspent', v:'blockchain'}, settingsSet);
-        $('#settingsUnspentBtn_electrum').click({f:'unspent', v:'electrum'}, settingsSet);
-        $('#settingsUnspentBtn_blockexplorer').click({f:'unspent', v:'blockexplorer'}, settingsSet);
-
+        $("#settings-login-btn").click(settingsLogin);
         $('#smtpSettingsBtn').click(smtpSettingsSet);
-
         $("#send-test-email-btn").click(sendTestEmail);
         $("#cancel-test-email-btn").click(hideTestEmailModal);
         $("#smtpTestBtn").click(showTestEmailModal);
         hideTestEmailModal();
         $(".email-modal-wrapper").css("visibility","visible");
+        $("a[data-toggle='tab']").on('shown', function(e){
+            if($(e.relatedTarget).attr('id') == 'settingsActual'){
+                hideSettingsActual();
+            }
+        });
 /*
         // generator
 

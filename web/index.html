@@ -9,7 +9,11 @@
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link href="css/default.css" rel="stylesheet">
     <link href="css/bootstrap-responsive.css" rel="stylesheet">
-
+    <style>
+        .form-horizontal .control-group{
+            margin-bottom: 9px;
+        }
+    </style>
 <!--[if lt IE 9]>
     <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -33,7 +37,12 @@
 -->
                     <li><a data-toggle="tab" href="#advanced" onclick="$('.btn-navbar').click()">Advanced</a></li> 
                     <li><a data-toggle="tab" href="#debug" onclick="$('.btn-navbar').click()">Backstage</a></li> 
-                    <li><a data-toggle="tab" href="#settings" onclick="$('.btn-navbar').click()" id='settingsLink'>Settings</a></li> 
+                    <li id="settings-li">
+                        <a data-toggle="tab" href="#settings-login" onclick="$('.btn-navbar').click()" id='settingsLink'>Settings</a>
+                    </li> 
+                    <li id="settings-actual-li">
+                        <a data-toggle="tab" href="#settings" onclick="$('.btn-navbar').click()" id="settingsActual">Settings Actual</a>
+                    </li>
                     <li><a href="" target="_blank" onclick="$('.btn-navbar').click()">New</a>
                 </ul>
             </div>
@@ -640,23 +649,34 @@
             </fieldset>
             </form>
         </div>
-
+<!-- Settings login --> 
+        <div class="tab-pane fade" id="settings-login">
+            <div class="form-horizontal">
+                <fieldset><legend>Settings</legend></fieldset>
+                <br />
+                <div class="control-group">
+                    <label class="control-label" for="settingsPword">Password</label>
+                    <div class="controls"> 
+                        <input class="span5" id="login-password" type="password" title="Password to change settings. Edit the password file to set the password."> 
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="controls">
+                        <button class="btn" type="button" id='settings-login-btn'>Login</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 <!-- Settings -->
         <div class="tab-pane fade" id="settings"> 
             <form action="/" class="form-horizontal" method="get" id="settingsForm">
-            <fieldset> <legend>Settings</legend> 
-                <div class="control-group" id="settingsPasswordDiv"> 
-                    <label class="control-label" for="settingsPasswordDiv">*Password</label> 
-                    <div class="controls"> 
-                        <input class="span5" id="settingsPassword" type="password" title="Password to change settings. Edit the password file to set the password."> 
-                    </div>
-                </div>
+            <fieldset> <legend>Transaction Settings</legend> 
                 <div class="control-group"> 
                     <label class="control-label" for="settingsSend">Send Transaction Via</label> 
                     <div class="controls"> 
                         <div class="btn-group" data-toggle="buttons-radio" id="settingsSend"> 
-                            <button class="btn" id="settingsSendBtn_electrum" type="button">Electrum</button> 
-                            <button class="btn active" id="settingsSendBtn_blockchain" type="button">BlockChain</button> 
+                            <button class="btn" id="settingsSendBtn_electrum" type="button" data-val='electrum'>Electrum</button> 
+                            <button class="btn" id="settingsSendBtn_blockchain" type="button" data-val='blockchain'>BlockChain</button> 
                         </div>
                     </div>
                 </div>
@@ -664,14 +684,14 @@
                     <label class="control-label" for="settingsUnspent">Get Unspent Via</label> 
                     <div class="controls"> 
                         <div class="btn-group" data-toggle="buttons-radio" id="settingsUnspent"> 
-                            <button class="btn" id="settingsUnspentBtn_electrum" type="button">Electrum</button> 
-                            <button class="btn active" id="settingsUnspentBtn_blockchain" type="button">BlockChain</button> 
-                            <button class="btn" id="settingsUnspentBtn_blockexplorer" type="button">BlockExplorer</button> 
+                            <button class="btn" id="settingsUnspentBtn_electrum" type="button" data-val='electrum'>Electrum</button> 
+                            <button class="btn" id="settingsUnspentBtn_blockchain" type="button" data-val='blockchain'>BlockChain</button> 
+                            <button class="btn" id="settingsUnspentBtn_blockexplorer" type="button" data-val='blockexplorer'>BlockExplorer</button> 
                         </div>
                     </div>
                 </div>
                 
-                <legend>SMTP</legend>
+                <legend>SMTP Settings</legend>
                 <div class="control-group">
                     <label class="control-label" for="smtpHost">SMTP Host</label>
                     <div class="controls">
@@ -697,10 +717,20 @@
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label"></label>
                     <div class="controls">
-                        <button class="btn" id="smtpSettingsBtn" type="button">Update</button>
-                        <button class="btn" id="smtpTestBtn" type="button" style="margin-left:5px">Test</button>
+                        <button class="btn" id="smtpTestBtn" type="button">Test SMTP settings</button>
+                    </div>
+                </div>
+                <legend class="transparent-border"></legend>
+                <div class="control-group darker-text">
+                    <label class="control-label" for="settings-password-change">Password</label>
+                    <div class="controls">
+                        <input class="span5" type="password" id="settings-password-change">
+                    </div>
+                </div>
+                <div class="control-group darker-text">
+                    <div class="controls">
+                        <button class="btn" id="smtpSettingsBtn" type="button">Update settings</button>
                     </div>
                 </div>
 <!--
@@ -738,6 +768,12 @@
                     <label class="control-label" for="email-msg">Message</label> 
                     <div class="controls"> 
                         <textarea class="span5" id="email-msg" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="email-password">Settings Password</label>
+                    <div class="controls">
+                        <input class="span5" id="email-password" type="password">
                     </div>
                 </div>
                 <div class="control-group" style="overflow: auto"> 

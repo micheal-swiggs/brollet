@@ -18,6 +18,7 @@ input[disabled],select[disabled],textarea[disabled],input[readonly],select[reado
 
 legend {
     margin-bottom: 0px;
+    margin-top: 37px;
 }
 .email-modal-wrapper{
     visibility: hidden;
@@ -38,10 +39,21 @@ legend {
     margin-right: auto;
     top: 20px;
     width: 500px;
-    height: 500px;
+    height: 560px;
     border: 1px solid red;
     border-radius: 2px;
     padding: 10px;
     overflow-y: scroll;
 }
+.transparent-border{
+    border-color: transparent;
+}
+.darker-text * {
+    color: rgba(0,0,0, 0.73);
+    font-weight: bold;
+}
+#settings-actual-li{
+    display: none;
+}
+
 

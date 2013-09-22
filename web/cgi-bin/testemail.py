@@ -5,7 +5,7 @@ import json
 import traceback
 import logging
 import simpleemail
-
+import access
 
 print "Content-type: text/plain\n"
 
@@ -23,6 +23,10 @@ if rawinp == '':
     sys.exit()
 data = json.loads(rawinp)
 logging.info(data);
+
+password = data['password']
+if not access.validPassword(password): access.incorrectPassword()
+
 emailConfig = data['emailConfig']
 emailMsg = data['emailMsg']
 
