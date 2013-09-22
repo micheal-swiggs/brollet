@@ -63,6 +63,13 @@
         return [version, hash];
     }
 
+    var keysAsBase58 = function(){
+        var result = [];
+        for(var i in Keys){
+            if(i != null) result.push(i);
+        }
+        return result;
+    }
     encode_length = function(len) {
         if (len < 0x80)
             return [len];
@@ -735,14 +742,7 @@ function compareBlockDesc(a, b){
         UI.sendBy = 'address'
     }
 
-    function smtpHostPortAvailable(){
-        if ($("#smtpHost").val() == '') return false;
-        if ($("#smtpPort").val() == '') return false;
-        return true;
-    }
-
     function homeSendByEmailForm(){
-        settingsGet()
         $('#homeSendMessageDiv').show()
         $('#homeSendPasswordDiv').show()
         $('#homeSendToEmailDiv').show()
@@ -917,6 +917,17 @@ function compareBlockDesc(a, b){
 //        $('#qrscanText').html('Could not read the QR code.')
     }
 
+
+    function homeTransactionsShow(){
+        getWalletTransactions();
+        $("#homeTransactions").show();
+        $("#homeMainForm").hide();
+    }
+
+    function homeTransactionsHide(){
+        $("#homeMainForm").show();
+        $("#homeTransactions").hide();
+    }
 
     function homeReceiveForm(){
         $('#homeReceiveForm').show()
@@ -1521,15 +1532,9 @@ function compareBlockDesc(a, b){
     }
 
     function sendTransactionEmail(emailTx){
-        if (smtpHostPortAvailable()){
-            $("#sendingInfo").html(WaitingIcon)
-            $.post('cgi-bin/emailbitcoins.py', JSON.stringify(emailTx),
+        $("#sendingInfo").html(WaitingIcon)
+        $.post('cgi-bin/emailbitcoins.py', JSON.stringify(emailTx),
                    transactionEmailSent, 'text')
-        } else {
-            //email msg in dialog
-            alert("SMTP host and port not set.")
-            showEmailCode();
-        }
     }
 
     function showEmailCode(){
@@ -2731,6 +2736,139 @@ alert('No keys found.')
             txGetUnspent();
     }
 
+    function cleanNumber(buf){
+        buf = buf.split("").reverse().join("");
+        var result = "";
+        var cleaning = true;
+        for (var i=0; i<buf.length; i++){
+            if(cleaning == false){
+                result += buf[i];
+                continue;
+            }
+            if(buf[i] == '0'){
+
+            }else if(/^[1-9]$/.test(buf[i])){
+                cleaning = false;
+                result += buf[i];
+            }else{ //buf[i] == '.'
+                cleaning = false;
+            }
+        }
+        return result.split("").reverse().join("");
+    }
+    function placeTxnsInTable(data){
+        var ds = {
+            cols: {
+                time: {index:1, type: "date", friendly: 'Time'},
+                addrs: { index: 2, type: 'string', friendly: 'Bitcoin Address' },
+                txid: {index: 3, type: 'string', friendly: 'Transaction'},
+                fee: {index: 4, type: 'number', friendly: 'Fee (BTC)', decimals: 12},
+                amt: {index: 5, type: 'number', friendly: 'Amount (BTC)', decimals: 12},
+
+            },
+            rows: data
+        }
+        function formatTable(){
+            $("#transactions-table tbody td:nth-child(4)").each(function(i,e){
+                var temp = cleanNumber($(e).html());
+                if(temp == "0")temp = "";
+                $(e).html(temp);
+            });
+            $("#transactions-table tbody td:nth-child(5)").each(function(i,e){
+                var t = cleanNumber($(e).html());
+                var cls = 'negative';
+                if(t[0] != '-'){
+                    t = "&nbsp;"+t;
+                    cls = 'positive';
+                }
+                $(e).html("<span class='"+cls+"'>"+t+"</span>");
+            })
+        }
+        $("#transactions-table").html("");
+        var table = $("#transactions-table").WATable({
+            tableCreated: formatTable,
+            rowClicked: formatTable,
+            columnClicked: formatTable,
+            pageChanged: formatTable,
+            pageSizeChanged: formatTable,
+        }).data('WATable');
+        table.setData(ds);
+    }
+    function getWalletTransactions(){
+        var addresses = keysAsBase58();
+        function sendingTrans(txn){
+            var inputs = txn.inputs;
+            var inputAddresses = [];
+            var totalInputs = 0;
+            for(var j=0; j<inputs.length; j++){
+                totalInputs += inputs[j].prev_out.value;
+                inputAddresses.push(inputs[j].prev_out.addr);
+            }
+            var outputs = txn.out;
+            var totalOutputs = 0;
+            var sentOutput = 0;
+            for(var j=0; j<outputs.length; j++){
+                totalOutputs += outputs[j].value;
+                if(addresses.indexOf(outputs[j].addr) == -1){
+                    sentOutput += outputs[j].value;
+                }
+            }
+            var fee = totalInputs - totalOutputs;
+            return {
+                time: new Date(txn.time*1000),
+                addrs: inputAddresses.join("<br />"),
+                amt: sathoshi2num(-1*sentOutput),
+                fee: sathoshi2num(fee),
+                txid: "<a href='https://blockchain.info/tx/"+txn.hash+"'>"+txn.hash.substring(0,8)+"...</a>"
+            };
+        }
+        function receivingTrans(txn){
+            var outputs = txn.out;
+            var outputAddresses = [];
+            var totalOutputs = 0;
+            for(var j=0; j<outputs.length; j++){
+                if(addresses.indexOf(outputs[j].addr) != -1){
+                    outputAddresses.push(outputs[j].addr);
+                    totalOutputs += outputs[j].value;
+                }
+            }
+            return {
+                time: new Date(txn.time*1000),
+                addrs: outputAddresses.join("<br />"),
+                amt: sathoshi2num(totalOutputs),
+                fee: null,
+                txid: "<a href='https://blockchain.info/tx/"+txn.hash+"'>"+txn.hash.substring(0,8)+"...</a>"
+            };
+        }
+
+        function cback(i){
+            console.log('cback');
+            var txns = i.txs;
+            var results = [];
+            for(var i=0; i<txns.length; i++){
+                if(txns[i].result>0) results.push(receivingTrans(txns[i]));
+                else results.push(sendingTrans(txns[i]));
+            }
+            placeTxnsInTable(results);
+        }
+        var param = '';
+        for(var i=1; i<addresses.length; i++){
+            var address = addresses[i];
+            param += addresses[i] + '|';
+
+        }
+        param += addresses[0];
+        var baseUrl = 'http://blockchain.info/multiaddr?cors=true&active='+param;
+        $.ajax({
+            type: 'GET',
+            url: baseUrl,
+            success: function(i,j,k){
+                cback(i);
+            },
+            error: function(i,j,k){  console.log('err')}
+        })
+    }
+
     function txOnChangeSec() {
         clearTimeout(timeout);
         timeout = setTimeout(txGenSrcAddr, TIMEOUT);
@@ -3166,7 +3304,6 @@ alert(tx)
 
     $(document).ready( function() {
 //alert('ready')
-
         if (window.location.hash)
             $('#tab-' + window.location.hash.substr(1)).tab('show');
 
@@ -3186,6 +3323,8 @@ alert(tx)
         $("#showEmailCodeBtn").click(showEmailCode);
         $('#homeScanBtn').click(homeScan);
         $('#homeScanCloseBtn').click(homeScanClose);
+        $("#homeTransactionsBtn").click(homeTransactionsShow);
+        $("#homeTransactionsBackBtn").click(homeTransactionsHide);
         $('#homeReceiveBtn').click(homeReceiveForm);
         $('#homeReceiveBackBtn').click(homeReceiveBack);
         $('#homeRedeemBtn').click(homeRedeemForm);

@@ -55,5 +55,11 @@ legend {
 #settings-actual-li{
     display: none;
 }
+#transactions-table .negative{
+    color: rgb(202, 59, 59);
+}
+#transactions-table .positive{
+    color: rgb(28, 116, 28);
+}
 
 

@@ -37,11 +37,10 @@ if emailSettings == '':
     sys.exit()
 
 email_host = emailSettings.get('host','')
-email_port = int(emailSettings.get('port',''))
+email_port = emailSettings.get('port','')
 e_error = ''
-if email_host == '': e_error = 'SMTP host not set.'
+if email_host == '': e_error = 'SMTP host not set. '
 if email_port == '': e_error += 'SMTP port not set.'
-
 if e_error != '':
     print json.dumps ({'status':'Error', 'error': e_error})
     sys.exit()
@@ -78,6 +77,7 @@ if code == '':
     sys.exit()
 
 try:
+    email_port = int(email_port)
     emailConfig = {'email_host': email_host, 'email_port': email_port,
                    'email_username': emailUsername, 'email_password': emailPassword}
     emailMsg = { 'sender': sender, 'to': sender,

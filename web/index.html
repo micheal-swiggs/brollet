@@ -9,6 +9,7 @@
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link href="css/default.css" rel="stylesheet">
     <link href="css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="css/watable.css" rel="stylesheet" />
     <style>
         .form-horizontal .control-group{
             margin-bottom: 9px;
@@ -19,6 +20,7 @@
     <![endif]-->
     <link href="favicon.ico" rel="shortcut icon">
     <script src="js/jquery-1.7.2.min.js"></script> 
+    <script src="js/jquery.watable.js"></script>
 </head>
 <body>
 <div class="navbar navbar-fixed-top"> 
@@ -41,7 +43,7 @@
                         <a data-toggle="tab" href="#settings-login" onclick="$('.btn-navbar').click()" id='settingsLink'>Settings</a>
                     </li> 
                     <li id="settings-actual-li">
-                        <a data-toggle="tab" href="#settings" onclick="$('.btn-navbar').click()" id="settingsActual">Settings Actual</a>
+                        <a data-toggle="tab" href="#settings" onclick="$('.btn-navbar').click()" id="settingsActual">Settings</a>
                     </li>
                     <li><a href="" target="_blank" onclick="$('.btn-navbar').click()">New</a>
                 </ul>
@@ -132,6 +134,7 @@
                     <div class="controls"> 
                         <button class="btn" id="homeSendBtn" type="button">Send</button> 
                         <button class="btn" id="homeReceiveBtn" type="button">Receive</button> 
+                        <button class="btn" id="homeTransactionsBtn" type="button">Transactions</button>
                         <button class="btn" id="homeRedeemBtn" type="button">Redeem</button> 
                         <button class="btn" id="homeRecoverBtn" type="button">Recover</button> 
                     </div>
@@ -239,7 +242,7 @@
                     <div class="controls"> 
                         <button class="btn" id="homeSendCancelBtn" type="button">Cancel</button> 
                         <button class="btn" id="homeSendSendBtn" type="button">Send It</button>
-                        <button class="btn hide" id="showEmailCodeBtn" type="button" style="margin-left: 5px">Show code</button>
+                        <button class="btn hide" id="showEmailCodeBtn" type="button">Show code</button>
 <!--
                         <button class="btn" id="homeSendShowBtn" type="button">Show It</button> 
 -->
@@ -293,6 +296,18 @@
                 </div>
             </fieldset>
             </form>
+
+            <div class="form-horizontal hide" id="homeTransactions">
+                <fieldset>
+                    <legend>Transactions</legend>
+                        <div class="control-group">
+                            <div class="controls">
+                                <div id="transactions-table"></div>
+                                <div class="btn" id="homeTransactionsBackBtn" type="button">Back</button>
+                            </div>
+                        </div>
+                </fieldset>
+            </div>
     <!-- Redeem -->
             <form action="/" class="form-horizontal hide" method="get" id="homeRedeemForm">
             <fieldset> <legend>Redeem</legend> 
