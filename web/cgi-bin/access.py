@@ -12,9 +12,16 @@ def incorrectPassword():
     print json.dumps(res)
     sys.exit()
 
+def changePassword():
+    res = {'status':'Error', 'message':'Currently the default password is set. Change the password to something more secure.'}
+    print json.dumps(res)
+    sys.exit()
+
 def validPassword(sentPassword):
     conf = readConf()
-    storedPassword = conf.get('password', 'change')
-    if sentPassword == 'change' or sentPassword != storedPassword: return False
+    storedPassword = conf.get('password', 'change1')
+    if isDefaultPassword(sentPassword) or sentPassword != storedPassword: return False
     return True
 
+def isDefaultPassword(sentPassword):
+    return sentPassword == 'change1'

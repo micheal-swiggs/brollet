@@ -1526,7 +1526,7 @@ function compareBlockDesc(a, b){
 
         }
         $("#test-email-sending-info").html(WaitingIcon);
-        var buf = { emailConfig: emailConfig, emailMsg: emailMsg, password: $("#email-password").val()};
+        var buf = { emailConfig: emailConfig, emailMsg: emailMsg, password: SettingsPassword.get()};
         $.post('cgi-bin/testemail.py', JSON.stringify(buf),
             callback, 'text' )
     }
@@ -2819,7 +2819,7 @@ alert('No keys found.')
                 addrs: inputAddresses.join("<br />"),
                 amt: sathoshi2num(-1*sentOutput),
                 fee: sathoshi2num(fee),
-                txid: "<a href='https://blockchain.info/tx/"+txn.hash+"'>"+txn.hash.substring(0,8)+"...</a>"
+                txid: "<a target=_blank href='https://blockchain.info/tx/"+txn.hash+"'>"+txn.hash.substring(0,8)+"...</a>"
             };
         }
         function receivingTrans(txn){
@@ -2837,7 +2837,7 @@ alert('No keys found.')
                 addrs: outputAddresses.join("<br />"),
                 amt: sathoshi2num(totalOutputs),
                 fee: null,
-                txid: "<a href='https://blockchain.info/tx/"+txn.hash+"'>"+txn.hash.substring(0,8)+"...</a>"
+                txid: "<a target=_blank href='https://blockchain.info/tx/"+txn.hash+"'>"+txn.hash.substring(0,8)+"...</a>"
             };
         }
 
@@ -3216,6 +3216,15 @@ alert(tx)
         $.post('cgi-bin/settings.py', jos, settingsGetShow, 'text')
     }
 
+    var SettingsPassword = function(){
+        var val = null;
+        return {
+            set: function(v){val = v;},
+            get: function(){ return val;},
+            clear: function(){ val = null;}
+        }
+    }();
+
     function settingsLogin(){
         var pword = $("#login-password").val();
         var jo = {action: 'get', password: pword};
@@ -3225,6 +3234,7 @@ alert(tx)
             if(result.status == 'Error'){
                 alert(result.message);
             }else{
+                SettingsPassword.set(pword);
                 settingsGetShow(arg);
                 $("#login-password").val('');
                 $("#settings-actual-li").show();
@@ -3237,6 +3247,7 @@ alert(tx)
     }
 
     function hideSettingsActual(){
+        SettingsPassword.clear();
         $("#settings-actual-li").hide();
         $("#settings-li").show();
         $("#settingsSend .btn").removeClass('active');
@@ -3283,7 +3294,7 @@ alert(tx)
         jo = {}
         jo.action = 'set'
         jo.value = e.data.v
-        jo.password = $('#settings-password-change').val()
+        jo.password = SettingsPassword.get();
         jos = JSON.stringify(jo)
         $.post('cgi-bin/settings.py', jos, settingsSetCallback, 'text')
     }
@@ -3365,6 +3376,7 @@ alert(tx)
 
         $("#settings-login-btn").click(settingsLogin);
         $('#smtpSettingsBtn').click(smtpSettingsSet);
+        $("#settingsCloseBtn").click(function(){$("#tab-home").click();});
         $("#send-test-email-btn").click(sendTestEmail);
         $("#cancel-test-email-btn").click(hideTestEmailModal);
         $("#smtpTestBtn").click(showTestEmailModal);

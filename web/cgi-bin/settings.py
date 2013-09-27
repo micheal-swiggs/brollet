@@ -66,6 +66,8 @@ print >> sys.stderr, rawinp
 conf = access.readConf()
 savedpassword = conf.get('password', 'change')
 password = inp.get('password', '')
+
+if access.isDefaultPassword(savedpassword): access.changePassword()
 if not access.validPassword(password): access.incorrectPassword()
 
 action = inp.get('action', '')
