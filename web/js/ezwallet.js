@@ -1537,6 +1537,7 @@ function compareBlockDesc(a, b){
         $("#debugEmailJson").val(msg);
         $.post('cgi-bin/emailbitcoins.py', msg,
                    transactionEmailSent, 'text')
+
     }
 
     function showEmailCode(){
