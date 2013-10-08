@@ -1497,7 +1497,7 @@ function compareBlockDesc(a, b){
     function sendTestEmail(){
         var emailConfig = {
             email_host: $('#smtpHost').val(),
-            email_port: parseInt($('#smtpPort').val()),
+            email_port: $('#smtpPort').val(),
             email_username: $('#smtpUsername').val(),
             email_password: $('#smtpPassword').val(),
         }

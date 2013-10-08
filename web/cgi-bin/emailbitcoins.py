@@ -41,7 +41,8 @@ def sendBitcoinEmail():
     email_port = emailSettings.get('port','')
     e_error = ''
     if email_host == '': e_error = 'SMTP host not set. '
-    if email_port == '': e_error += 'SMTP port not set.'
+    if simpleemail.validport(email_port) != True:
+        e_error += simpleemail.validport(email_port)
     if e_error != '':
         print json.dumps ({'status':'Error', 'error': e_error})
         sys.exit()
@@ -91,9 +92,8 @@ def sendBitcoinEmail():
     simpleemail.sendemail(emailConfig, emailMsg)
 
 
-print "Content-type: text/plain\n"
-
 try:
+    print "Content-type: text/plain\n"
     sendBitcoinEmail()
     print json.dumps({'status':'OK', 'message': 'Email sent.'})
 except Exception, err:

@@ -1,10 +1,5 @@
 #!/usr/bin/env python
-import sys
-import os
-import json
 import smtplib
-import traceback
-import logging
 
 def sendemail(emailConfig, emailMsg):
     smtpserver = smtplib.SMTP(emailConfig['email_host'], emailConfig['email_port'])
@@ -18,4 +13,7 @@ def sendemail(emailConfig, emailMsg):
     msg = header + emailMsg['message']
     smtpserver.sendmail(emailMsg['sender'], emailMsg['to'], msg)
 
-
+def validport(n):
+    if (n == None or n==''): return 'SMTP port not set.'
+    if( not n.isdigit()): return 'SMTP port must be an integer.'
+    return True
