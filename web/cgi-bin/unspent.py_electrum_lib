@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import cgi
 import sys
 import os
 import json
@@ -10,12 +11,18 @@ from lib import *
 
 print "Content-type: text/plain\n\n";
 
-conlen = int(os.environ.get('CONTENT_LENGTH', 5000))
-if conlen>100000: conlen = 100000
-rawinp = sys.stdin.read(conlen)
+fStorage = cgi.FieldStorage()
+try:
+    len(fStorage)
+except Exception, err:
+    print json.dumps({'status':'Error', 'error': 'No parameters specified.'})
+    sys.exit()
 
-#      expecting myaddr to be in JSON like ["address1", "address2", ...]
-myaddr = json.loads(rawinp)
+if "addresses" not in fStorage:
+    res = {'status': 'Error', 'error':'No addresses specified'}
+    print json.dumps(res)
+    sys.exit()
+myaddr = fStorage["addresses"].value.split(",")
 
 # TODO check the given addresses
 

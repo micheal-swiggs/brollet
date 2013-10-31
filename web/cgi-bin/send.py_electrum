@@ -5,7 +5,7 @@
 
 # Using electrum to send the transaction
 
-
+import cgi
 import sys
 import os
 import json
@@ -19,33 +19,24 @@ def readConf():
 
 print "Content-type: text/plain\n"
 
+fStorage = cgi.FieldStorage()
+try:
+    len(fStorage)
+except Exception, err:
+    print json.dumps({'status':'Error', 'error': 'No parameters specified.'})
+    sys.exit()
 
+if "tx" not in fStorage:
+    res = {'status': 'Error', 'error':'Transaction not specified'}
+    print json.dumps(res)
+    sys.exit()
+tx = fStorage["tx"].value
 
-#res = {'status':'OK', 'tid':'abc '+str(conlen)+' '+rawinp}
-#res = {'status':'OK', 'tid':'abc '+tx}; print json.dumps(res); sys.exit()
-
-
-# read the transaction
-conlen = int(os.environ.get('CONTENT_LENGTH', 0))
-rawinp = sys.stdin.read(conlen)
-#rawinp = sys.stdin.read()
-
-if rawinp == '':
-  res = {}
-  res['status'] = 'Error'
-  res['error'] = 'No input given.'+str(conlen)
-  print json.dumps(res)
-  sys.exit()  
-txs = json.loads(rawinp)
-
-tx = txs.get('tx', '')
 if tx == '' :
-  res = {}
-  res['status'] = 'Error'
-  res['error'] = 'No transaction given.'
+  res = {'status':'Error', 'error':'No transaction given.'}
   print json.dumps(res)
   sys.exit()
-  
+
 if len(tx) < 50:
   res = {'status':'Error', 'error':'Transaction too short.'}
   print json.dumps(res)
