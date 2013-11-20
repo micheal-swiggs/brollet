@@ -5,6 +5,7 @@
 
 # Using blockchain.info/pushtx to send the transaction
 
+import cgi
 import sys
 import os
 import json
