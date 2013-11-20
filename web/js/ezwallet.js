@@ -1531,7 +1531,7 @@ function compareBlockDesc(a, b){
     function sendTransactionEmail(emailTx){
         $("#sendingInfo").html(WaitingIcon);
         $("#debugEmailJson").val(JSON.stringify(emailTx));
-        $.post('cgi-bin/emailbitcoins.py', emailTx,
+        $.get('cgi-bin/emailbitcoins.py', emailTx,
                    transactionEmailSent, 'text')
     }
 
