@@ -2,6 +2,7 @@
 import cgi
 import sys
 import os
+import urlparse
 import json
 import traceback
 import logging
@@ -13,23 +14,21 @@ def readConf():
     o = json.loads(c)
     return o
 
-def sendBitcoinEmail():
+def sendBitcoinEmail(content):
 
     logging.basicConfig(filename='../logs/email.log', level=logging.DEBUG)
-    fStorage = cgi.FieldStorage()
+    fStorage = urlparse.parse_qs(content)
     try:
         len(fStorage)
     except Exception, err:
-        print json.dumps({'status':'Error', 'error': 'No parameters specified.'})
-        sys.exit()
+        return json.dumps({'status':'Error', 'error': 'No parameters specified.'})
 
     logging.info(fStorage)
     conf = readConf()
     emailSettings = conf.get('email','')
     if emailSettings == '':
         res = {'status':'Error', 'error': 'Email configuration not set.'}
-        print json.dumps(res)
-        sys.exit()
+        return json.dumps(res)
 
     email_host = emailSettings.get('host','')
     email_port = emailSettings.get('port','')
@@ -38,8 +37,8 @@ def sendBitcoinEmail():
     if simpleemail.validport(email_port) != True:
         e_error += simpleemail.validport(email_port)
     if e_error != '':
-        print json.dumps ({'status':'Error', 'error': e_error})
-        sys.exit()
+        return json.dumps ({'status':'Error', 'error': e_error})
+
     emailUsername = emailSettings.get('username','')
     emailPassword = emailSettings.get('password','')
 
@@ -49,26 +48,22 @@ def sendBitcoinEmail():
     #if emailPassword == '' and emailUsername != '':
     #    e_error = 'SMTP username not set, but SMTP password is set.'
     if e_error != '':
-        print json.dumps ({'status': 'Error', 'error':e_error})
-        sys.exit()
+        return json.dumps ({'status': 'Error', 'error':e_error})
 
     if "to" not in fStorage:
         res = {'status': 'Error', 'error':'No recipient given.'}
-        print json.dumps(res)
-        sys.exit()
-    to = fStorage["to"].value
+        return json.dumps(res)
+    to = fStorage["to"][0]
 
     if "sender" not in fStorage:
         res = {'status':'Error', 'error': 'No sender given.'}
-        print json.dumps(res)
-        sys.exit()
-    sender = fStorage['sender'].value
+        return json.dumps(res)
+    sender = fStorage['sender'][0]
 
     if "code" not in fStorage:
         res = {'status':'Error', 'error': 'No transaction code given.'}
-        print json.dumps(res)
-        sys.exit()
-    code = fStorage['code'].value
+        return json.dumps(res)
+    code = fStorage['code'][0]
 
     emailConfig = {'email_host': email_host, 'email_port': email_port,
                 'email_username': emailUsername, 'email_password': emailPassword}
@@ -80,12 +75,15 @@ def sendBitcoinEmail():
             'subject': "Bitcoins from EZWallet",
             'message': "You received bitcoins from {0}. Use the following code to redeem your bitcoins with EZWallet.\n\n{1}\n\n".format(sender, code)}
     simpleemail.sendemail(emailConfig, emailMsg)
+    return json.dumps({'status':'OK', 'message': 'Email sent.'})
 
-try:
-    print "Content-type: text/plain\n"
-    sendBitcoinEmail()
-    print json.dumps({'status':'OK', 'message': 'Email sent.'})
-except Exception, err:
-    p_err = str(traceback.format_exc())
-    print json.dumps({'status':'Error', 'error': 'Email was not sent.', 'pythonerror': p_err})
 
+def process(content):
+    #print "Content-type: text/plain\n"
+    #result = 0
+    try:
+        result = sendBitcoinEmail(content)
+    except Exception, err:
+        p_err = str(traceback.format_exc())
+        result = json.dumps({'status':'Error', 'error': 'Email was not sent.', 'pythonerror': p_err})
+    return result

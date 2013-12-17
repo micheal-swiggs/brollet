@@ -3,23 +3,41 @@
 # For ubuntu install should be #!/usr/bin/env python
 
 # Found this here: http://code.activestate.com/lists/python-list/284803/
-
+import sys
 import SocketServer
 import BaseHTTPServer
 import CGIHTTPServer
+import os
+sys.path.append(os.getcwd()+'/cgi-bin')
+import emailbitcoins
 
 class ThreadingCGIServer(SocketServer.ThreadingMixIn,
                    BaseHTTPServer.HTTPServer):
     pass
 
-import sys
+class CustomHandlar(CGIHTTPServer.CGIHTTPRequestHandler):
+    def __init__(self, *args):
+        CGIHTTPServer.CGIHTTPRequestHandler.__init__(self,*args)
+
+    def do_POST(self):
+        if "emailbitcoins.py" in self.path:
+            length = int(self.headers.getheader('content-length'))
+            content = self.rfile.read(length)
+            resp = emailbitcoins.process(content)
+            self.send_response(200,'OK')
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(bytes(resp))
+            return
+        CGIHTTPServer.CGIHTTPRequestHandler.do_POST(self)
+
 
 if sys.argv[1:]:
     port = int(sys.argv[1])
 else:
     port = 8099
 
-server = ThreadingCGIServer(('', port), CGIHTTPServer.CGIHTTPRequestHandler)
+server = ThreadingCGIServer(('', port), CustomHandlar)
 try:
     while 1:
         sys.stdout.flush()
