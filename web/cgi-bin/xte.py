@@ -25,8 +25,7 @@ if not _have_ssl:
 try:
 #    conlen = int(os.environ['CONTENT_LENGTH'])
 #    rawinp = sys.stdin.read(conlen)
-#     rawinp = '{"emailConfig": {"email_port": 465, "email_username": "ezwallet1@gmail.com", "email_password": "EZ1Walle", "email_host": "smtp.gmail.com"}, "emailMsg": {"to": "arimaa_game@yahoo.com", "message": "testing 123", "sender": "osyed1@gmail.com", "subject": "EZWallet test email."}}'
-     rawinp = '{"emailConfig": {"email_port": 587, "email_username": "ezwallet1@gmail.com", "email_password": "EZ1Walle", "email_host": "smtp.gmail.com"}, "emailMsg": {"to": "arimaa_game@yahoo.com", "message": "testing 123", "sender": "osyed1@gmail.com", "subject": "EZWallet test email."}}'
+     rawinp = '{"emailConfig": {"email_port": 587, "email_username": "brollet.test@gmail.com", "email_password": "1Brolle", "email_host": "smtp.gmail.com"}, "emailMsg": {"to": "testuser@yahoo.com", "message": "testing 123", "sender": "testuser@gmail.com", "subject": "Brollet test email."}}'
 except Exception:
     rawinp = sys.stdin.read()
 print >> sys.stderr, rawinp

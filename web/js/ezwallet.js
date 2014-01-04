@@ -968,7 +968,7 @@ function compareBlockDesc(a, b){
             var fee = $("#homeRedeemFee").val()
             if(fee == '')fee = '0.0'
             validateFee(fee)
-            transferFromImportedToEZWallet(fee, function(d){
+            transferFromImportedToBrollet(fee, function(d){
                 if (d == null) return;
                 homeUpdateBalance()
                 $('#homeMainForm').show()
@@ -1046,7 +1046,7 @@ function compareBlockDesc(a, b){
             $("#homeRecoverBalancePre").html('')
             homeUpdateBalance()
         }
-        transferFromImportedToEZWallet(fee, callback)
+        transferFromImportedToBrollet(fee, callback)
 
 
     }
@@ -1504,7 +1504,7 @@ function compareBlockDesc(a, b){
         var emailMsg = {
             sender: $("#from-email").val(),
             to: $("#to-email").val(),
-            subject: "EZWallet test email.",
+            subject: "Brollet test email.",
             message: $("#email-msg").val()
         }
         function callback(i){
@@ -1659,12 +1659,12 @@ Recover: the private key encrypted with a private key owned by the sender, used 
 
 To redeem the recipient just needs to provide the code they were emailed and also
 a password if the sender chose to add one. The email of the recipient needed to decrypt
-the above message will already be known from the EZWallet info.
+the above message will already be known from the Brollet info.
 
 To recover the sender just needs to provide the code and the email of the recipient.
 If the sender added a password to redeem, it is not required to be recalled.
 The private key needed to decrypt the Recover field of the above message will already
-be in the senders EZWallet.
+be in the senders Brollet.
 
 If the sender does not add a password then anyone who intercepts the email
 can redeem the bitcoins. If the recipient redeems the bitcoins first, the
@@ -1742,8 +1742,8 @@ rand: "+rand+"\n\
         addPrivateKey (privKey)
     }
 
-    // transfers all bitcoins from imported keys into ezwallet keys
-    function transferFromImportedToEZWallet(fee, callback){
+    // transfers all bitcoins from imported keys into brollet keys
+    function transferFromImportedToBrollet(fee, callback){
          var iAddrs = []
         for(var k in ImportedKeys){
             iAddrs.push(k)

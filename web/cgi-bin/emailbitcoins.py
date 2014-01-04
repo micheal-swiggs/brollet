@@ -82,13 +82,13 @@ def sendBitcoinEmail():
     emailConfig = {'email_host': email_host, 'email_port': email_port,
                 'email_username': emailUsername, 'email_password': emailPassword}
     emailMsg = { 'sender': sender, 'to': sender,
-        'subject': "You send bitcoins from EZWallet",
-        'message': "You sent bitcoins to {0}. Use the code below to recover the bitcoins with EZWallet.\n\n{1}\n\n".format(to,code)}
+        'subject': "You send bitcoins from Brollet",
+        'message': "You sent bitcoins to {0}. Use the code below to recover the bitcoins with Brollet.\n\n{1}\n\n".format(to,code)}
     simpleemail.sendemail(emailConfig, emailMsg)
 
     emailMsg = { 'to': to, 'sender': sender,
-            'subject': "Bitcoins from EZWallet",
-            'message': "You received bitcoins from {0}. Use the following code to redeem your bitcoins with EZWallet.\n\n{1}\n\n".format(sender, code)}
+            'subject': "Bitcoins from Brollet",
+            'message': "You received bitcoins from {0}. Use the following code to redeem your bitcoins with Brollet.\n\n{1}\n\n".format(sender, code)}
     simpleemail.sendemail(emailConfig, emailMsg)
 
 
