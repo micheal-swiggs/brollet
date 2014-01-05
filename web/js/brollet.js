@@ -672,7 +672,7 @@ function compareBlockDesc(a, b){
 
     function homeOpenWallet(){
         var wn, wp, i, k1, p1, b1, s
-// if the home wallet is still open, warn and close it before opening new wallet
+        // if the home wallet is still open, warn and close it before opening new wallet
         if (! $.isEmptyObject(Keys)){
           a = confirm('Close the currently open wallet?')
           if (! a){ return }
@@ -680,11 +680,11 @@ function compareBlockDesc(a, b){
         }
         G.email = removeWhiteSpace($('#homeEmail').val().toLowerCase())
         G.pin = $('#homeSessionPin').val()
-// we don't hold wallet name or wallet pass in memory
+        // we don't hold wallet name or wallet pass in memory
         wn = trimWhiteSpace($('#homeWalletName').val().toLowerCase())
         wp = $('#homeWalletPassword').val()
         if (G.email == ''){ alert("Enter email."); return }
-        if (wn == ''){ alert("Enter wallet name."); return }
+        //if (wn == ''){ alert("Enter wallet name."); return }
         if (wp == ''){ alert("Enter wallet password."); return }
         Seed.master = hash256(G.email+wn+wp+'master')
         Seed.main = hash256(Seed.master+'main')
