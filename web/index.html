@@ -14,6 +14,12 @@
         .form-horizontal .control-group{
             margin-bottom: 9px;
         }
+        .control-label.compulsory{
+            font-size: 16px;
+        }
+        .control-label.optional{
+            color: rgba(0, 0, 0, 0.5);
+        }
     </style>
 <!--[if lt IE 9]>
     <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
@@ -94,26 +100,26 @@
             <form action="/" class="form-horizontal" method="get" id="homeOpenForm">
             <fieldset> <legend>Wallet</legend> 
                 <div class="control-group"> 
-                    <label class="control-label" for="homeEmail">*Email</label> 
+                    <label class="control-label compulsory" for="homeEmail">Email*</label> 
                     <div class="controls"> 
                         <input class="span5" id="homeEmail" type="text" placeholder="Capitalization and spaces do NOT matter."> 
                     </div>
                 </div>
                 <div class="control-group"> 
-                    <label class="control-label" for="homeWalletPassword">*Wallet Password</label> 
+                    <label class="control-label compulsory" for="homeWalletPassword">Wallet Password*</label> 
                     <div class="controls"> 
                         <input class="span5" id="homeWalletPassword" type="password" placeholder="Capitalization and spaces DO matter."> 
                     </div>
                 </div>
                 <div class="control-group"> 
-                    <label class="control-label" for="homeWalletName">Wallet Name</label> 
+                    <label class="control-label optional" for="homeWalletName">Wallet Name</label> 
                     <div class="controls"> 
                         <input class="span5" id="homeWalletName" type="text" placeholder="Capitalization and extra spaces do NOT matter."> 
                     </div>
                 </div>
 
                 <div class="control-group"> 
-                    <label class="control-label" for="homeSessionPin">Session Pin</label> 
+                    <label class="control-label optional" for="homeSessionPin">Session Pin</label> 
                     <div class="controls"> 
                         <input class="span5" id="homeSessionPin" type="password" placeholder="Will be required when sending funds, if provided."> 
                     </div>
@@ -121,7 +127,7 @@
                 <div class="control-group"> 
                     <label class="control-label" for="homeOpenWallet"></label> 
                     <div class="controls"> 
-                        Do not forget the Email, Wallet Name and Wallet Password. You will lose access to your wallet if you forget any of these.<br>
+                        Do not forget the Email, Wallet Password and Wallet Name(if provided). You will lose access to your wallet if you forget any of these.<br>
                         <button class="btn" id="homeOpenWallet" type="button">Open Wallet</button> 
                     </div>
                 </div>
