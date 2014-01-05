@@ -1,1 +1,0 @@
-./httpd.sh $1 2>> logs/web.log &

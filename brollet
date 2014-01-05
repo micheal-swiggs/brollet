@@ -1,0 +1,28 @@
+#!/bin/bash
+
+function show_commands {
+    echo "    start [port-number]"
+    echo "    stop"
+    echo "    clean"
+}
+
+if [ $# -lt 1 ]
+then
+    echo "Please specify a brollet command, e.g"
+    show_commands
+    exit
+fi
+
+if [ $1 == "start" ]
+then
+    ./httpd.sh $2 2>> logs/web.log &
+elif [ $1 == "stop" ]
+then
+    kill `ps -ef | grep 'python ../webServer' | grep -v grep | awk '{print $2}'`
+elif [ $1 == "clean" ]
+then
+    rm logs/web.log
+else
+    echo "Unrecognized brollet command, valid commands include"
+    show_commands
+fi
