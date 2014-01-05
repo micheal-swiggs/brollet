@@ -471,9 +471,8 @@ function makeTxObjBase(from, to, change, fee, onlyFromAddrs){
     toAddrs.push(adr)
   }
   if (amtTot<=0.0){ alert('Amount must be greater than 0.'); return }
-  console.log(amtTot)
 // get a list of unspent transaction we can send from; make sure the from address isn't also a to address
-  traz = bitAddArr2transRefArr(fromPairs, amtTot, toAddrs, onlyFromAddrs)
+  traz = bitAddArr2transRefArr(fromPairs, amtTot, toAddrs, onlyFromAddrs);
   if (traz == 0){ alert('Insufficient funds.'); return }
   tra = traz[0]
   fundTot = traz[1]
@@ -960,10 +959,6 @@ function compareBlockDesc(a, b){
     }
     function homeRedeemNow(){
         alert('about to redeem now')
-        function pKeyListener(k){
-            addImportedKey(k)
-        }
-        homeSetRedeemInfo(pKeyListener)
         if($('#importedTransfer').prop('checked')){
             var fee = $("#homeRedeemFee").val()
             if(fee == '')fee = '0.0'
@@ -974,7 +969,7 @@ function compareBlockDesc(a, b){
                 $('#homeMainForm').show()
                 $('#homeRedeemForm').hide()
                 clearRedeemForm();
-            })
+            });
         }
     }
 
@@ -1096,8 +1091,8 @@ function compareBlockDesc(a, b){
         }
         $('#homeBalanceLabel').html(WaitingIcon)
         $('#homeReceiveBalance').html(s)
-        addrStr = JSON.stringify(addrArr)
-        $.post('cgi-bin/unspent.py', addrStr, homeUpdateBalanceFill, 'text')
+        addrStr = JSON.stringify(addrArr);
+        $.post('cgi-bin/unspent.py', {addresses: addrArr.join(",")}, homeUpdateBalanceFill, 'text')
     }
 
     function updateAllSpentInfo (callback){
@@ -1119,12 +1114,12 @@ function compareBlockDesc(a, b){
             var result = parseUnspentDataBase(data, addrArr)
             callback(result);
         }
-        $.post('cgi-bin/unspent.py', addrStr, callbackWrapper, 'text')
+        $.post('cgi-bin/unspent.py', {addresses: addrArr.join(",")}, callbackWrapper, 'text')
     }
 
     function parseUnspentDataBase(data, actualKeys){
         var i, res, tr, script, sa, addr;
-        var unspentResult = []
+        var unspentResult = [];
         res = JSON.parse(data, '', '  ')
          for(i in res){
             tr = res[i]
@@ -1300,7 +1295,11 @@ function compareBlockDesc(a, b){
             catch(e){ rand = '' }
             if (rand != ''){
                 key = hex2hexKey(hash256(info+rand))
-                if(privateKeyListener != null){privateKeyListener(key)}
+                if(privateKeyListener != null){
+                    privateKeyListener(key)
+                }else{
+                    addImportedKey(key);
+                }
                 bita = key2bitAdd(key)
 // now check if the bitcoins are still there
                 addrArr = []
@@ -1308,7 +1307,7 @@ function compareBlockDesc(a, b){
                 addrStr = JSON.stringify(addrArr)
                 $('#homeRedeemBalanceDiv').show()
                 $('#homeRedeemBalance').html(WaitingIcon)
-                $.post('cgi-bin/unspent.py', addrStr, homeRedeemBalanceFill, 'text')
+                $.post('cgi-bin/unspent.py', {addresses: addrArr.join(",")}, homeRedeemBalanceFill, 'text')
             }
             else{
                 if (password == ''){ info = info + '<font color=red>Password needed.</font>' }
@@ -1434,7 +1433,7 @@ function compareBlockDesc(a, b){
         var tx = transObj.serialize()
         var txs = {tx: bytes2hex (tx)};
         var txj = JSON.stringify (txs)
-        $.post ('cgi-bin/send.py', txj, callback, 'text')
+        $.post ('cgi-bin/send.py', {tx: bytes2hex(tx)}, callback, 'text')
     }
 
     function homeSendTx(){
@@ -1452,9 +1451,9 @@ function compareBlockDesc(a, b){
         txs = {tx: tx}
         txj = JSON.stringify(txs)
         alert(tx)
-        //return emailTx
-        $.post('cgi-bin/send.py', txj, handleSentTx(emailTx), 'text')
+        $.post('cgi-bin/send.py', {tx: tx}, handleSentTx(emailTx), 'text')
     }
+
     function transactionEmailSent (data){
         var result = JSON.parse(data)
         if(result.status == 'Error'){
@@ -1508,8 +1507,6 @@ function compareBlockDesc(a, b){
             message: $("#email-msg").val()
         }
         function callback(i){
-            console.log('sendemail callback');
-            console.log(i);
             var result = JSON.parse(i);
             if(result.status == 'Error'){
                 if(result.pythonerror != null){
@@ -1532,12 +1529,11 @@ function compareBlockDesc(a, b){
     }
 
     function sendTransactionEmail(emailTx){
-        $("#sendingInfo").html(WaitingIcon)
-        var msg = JSON.stringify(emailTx);
-        $("#debugEmailJson").val(msg);
-        $.post('cgi-bin/emailbitcoins.py', msg,
+        $("#sendingInfo").html(WaitingIcon);
+        $("#debugEmailJson").val(JSON.stringify(emailTx));
+        emailTx['__'] = Math.floor(Math.random()*10000000000);
+        $.post('cgi-bin/emailbitcoins.py', emailTx,
                    transactionEmailSent, 'text')
-
     }
 
     function showEmailCode(){
@@ -1559,13 +1555,12 @@ function compareBlockDesc(a, b){
     }
 
     function handleSentTx(emailTx){
-        function homeSentTx(data){
+        return function(data){
             var res = JSON.parse(data, '', ' ')
             if (res.status == 'OK'){
                 alert('Sent\n'+res.message)
                 if (UI.sendBy == 'email'){
                     if (emailTx != null){
-                        console.log(emailTx);
                         alert('emailTx:\n'+emailTx.code+'\n'+
                              emailTx.sender+'\n'+
                              emailTx.to);
@@ -1593,7 +1588,6 @@ function compareBlockDesc(a, b){
                 alert('Error: '+res.error)
             }
         }
-        return homeSentTx
     }
 
     function homeMakeTx(){
@@ -1766,7 +1760,8 @@ rand: "+rand+"\n\
                 alert("Not enough confirmed bitcoins.")
                 return
             }
-            var transObj = makeTxObjBase (iAddrs.join(" "), firstAddy+" "+totalAmt, secondAddy, fee, true)
+            var transObj = makeTxObjBase (iAddrs.join(" "), firstAddy+" "+totalAmt,
+                                          secondAddy, fee, true);
             if(transObj == null){
                 sTransactionCallback (null)
                 return;
@@ -1788,7 +1783,7 @@ rand: "+rand+"\n\
         function getPrivateKeySpentInfo(){
             getUnspentBalance(iAddrs, unspentCallback)
         }
-        updateAllSpentInfo(getPrivateKeySpentInfo)
+        updateAllSpentInfo(getPrivateKeySpentInfo);
      }
     // --- Advanced ---
 
@@ -1993,7 +1988,7 @@ alert('No keys found.')
         $('#advancedBalanceLabel').html(WaitingIcon)
         $('#advancedReceiveBalance').html(s)
         addrStr = JSON.stringify(addrArr)
-        $.post('cgi-bin/unspent.py', addrStr, advancedUpdateBalanceFill, 'text')
+        $.post('cgi-bin/unspent.py', {addresses: addrArr.join(",")}, advancedUpdateBalanceFill, 'text')
     }
 
     function advancedUpdateBalanceFill(data){
@@ -2065,10 +2060,7 @@ alert('No keys found.')
         var tx, txs, txj
         tx = advancedMakeTx()
         if (tx == undefined){ return; }
-        txs = {tx: tx}
-        txj = JSON.stringify(txs)
-//alert(tx)
-        $.post('cgi-bin/send.py', txj, advancedSentTx, 'text')
+        $.post('cgi-bin/send.py', {tx: tx}, advancedSentTx, 'text')
     }
 
     function advancedSentTx(data){
@@ -2845,7 +2837,6 @@ alert('No keys found.')
         }
 
         function cback(i){
-            console.log('cback');
             var txns = i.txs;
             var results = [];
             for(var i=0; i<txns.length; i++){
@@ -2997,7 +2988,7 @@ alert('No keys found.')
         var txs = {tx: tx}
         var txj = JSON.stringify(txs)
 alert(tx)
-        $.post('cgi-bin/send.py', txj, homeSentTx, 'text')
+        $.post('cgi-bin/send.py', {tx: tx}, homeSentTx, 'text')
         return false;
     }
 

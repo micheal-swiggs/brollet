@@ -10,7 +10,7 @@
 #   and returns only the information for unspent addresses which is needed
 #   to create transactions for spending it.
 # returned object has the following structure:
-# 
+#
 # [
 #   {"bitcoinAddress1 n":
 #       {"address":__, "value":__, "scriptPubKey":__, "transHash":__, "n":__, "block":__},
@@ -18,7 +18,7 @@
 #       {"address":__, "value":__, "scriptPubKey":__, "transHash":__, "n":__, "block":__}}
 # ]
 #
-
+import cgi
 import sys
 import os
 import urllib2 as url
@@ -26,15 +26,19 @@ import json
 
 print "Content-type: text/plain\n"
 
+fStorage = cgi.FieldStorage()
 try:
-  conlen = int(os.environ['CONTENT_LENGTH'])
-  rawinp = sys.stdin.read(conlen)
-except Exception:
-  rawinp = sys.stdin.read()
+    len(fStorage)
+except Exception, err:
+    print json.dumps({'status':'Error', 'error': 'No parameters specified.'})
+    sys.exit()
 
-myaddresses = json.loads(rawinp)
+if "addresses" not in fStorage:
+    res = {'status': 'Error', 'error':'No addresses specified'}
+    print json.dumps(res)
+    sys.exit()
+myaddresses = fStorage["addresses"].value.split(",")
 
-print >> sys.stderr, rawinp
 
 #print myaddresses
 

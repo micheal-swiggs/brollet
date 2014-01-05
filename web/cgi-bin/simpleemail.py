@@ -2,7 +2,7 @@
 import smtplib
 
 def sendemail(emailConfig, emailMsg):
-    smtpserver = smtplib.SMTP(emailConfig['email_host'], emailConfig['email_port'])
+    smtpserver = smtplib.SMTP(str(emailConfig['email_host']), str(emailConfig['email_port']))
     smtpserver.ehlo()
     if emailConfig['email_username'] != '':
         smtpserver.starttls()
@@ -14,6 +14,6 @@ def sendemail(emailConfig, emailMsg):
     smtpserver.sendmail(emailMsg['sender'], emailMsg['to'], msg)
 
 def validport(n):
-    if (n == None or n==''): return 'SMTP port not set.'
-    if( not n.isdigit()): return 'SMTP port must be an integer.'
+    #if (n == None or n==''): return 'SMTP port not set.'
+    #if( not n.isdigit()): return 'SMTP port must be an integer.'
     return True

@@ -23,7 +23,6 @@ def sendtestemail():
         print json.dumps (res)
         sys.exit()
     data = json.loads(rawinp)
-    logging.info(data);
 
     password = data['password']
     if not access.validPassword(password): access.incorrectPassword()

@@ -5,37 +5,36 @@
 
 # Using blockchain.info/pushtx to send the transaction
 
+import cgi
 import sys
 import os
 import json
 import re
 import urllib2
+import logging
+
+logging.basicConfig(filename='../logs/debug.log', level=logging.DEBUG)
 
 print "Content-type: text/plain\n"
 
-
-# read the transaction
+fStorage = cgi.FieldStorage()
 try:
-  conlen = int(os.environ['CONTENT_LENGTH'])
-  rawinp = sys.stdin.read(conlen)
-except Exception:
-  rawinp = sys.stdin.read()
+    len(fStorage)
+except Exception, err:
+    print json.dumps({'status':'Error', 'error': 'No parameters specified.'})
+    sys.exit()
 
-print >> sys.stderr, rawinp
+if "tx" not in fStorage:
+    res = {'status': 'Error', 'error':'Transaction not specified'}
+    print json.dumps(res)
+    sys.exit()
+tx = fStorage["tx"].value
 
-
-if rawinp == '':
-  res = {'status':'Error', 'error':'No input given.'}
-  print json.dumps(res)
-  sys.exit()  
-txs = json.loads(rawinp)
-
-tx = txs.get('tx', '')
 if tx == '' :
   res = {'status':'Error', 'error':'No transaction given.'}
   print json.dumps(res)
   sys.exit()
-  
+
 if len(tx) < 50:
   res = {'status':'Error', 'error':'Transaction too short.'}
   print json.dumps(res)

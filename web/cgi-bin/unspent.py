@@ -11,7 +11,7 @@
 #   and returns only the information for unspent addresses which is needed
 #   to create transactions for spending it.
 # returned object has the following structure:
-# 
+#
 # [
 #   {"bitcoinAddress1 n":
 #       {"address":'', "sathoshi":__, "scriptHex":__, "transHash":__, "n":__, "block":__},
@@ -23,11 +23,14 @@
 # If the address is not given and the client figures it out from scriptHex
 # If the value is not given the client computes it from sathoshi
 #
-
+import cgi
 import sys
 import os
 import urllib2 as url
 import json
+import logging
+
+logging.basicConfig(filename='../logs/debug.log', level=logging.DEBUG)
 
 def endian(s):
   out = ''
@@ -39,15 +42,19 @@ def endian(s):
 
 print "Content-type: text/plain\n"
 
+fStorage = cgi.FieldStorage()
 try:
-  conlen = int(os.environ['CONTENT_LENGTH'])
-  rawinp = sys.stdin.read(conlen)
-except Exception:
-  rawinp = sys.stdin.read()
+    len(fStorage)
+except Exception, err:
+    print json.dumps({'status':'Error', 'error': 'No parameters specified.'})
+    sys.exit()
 
-myaddresses = json.loads(rawinp)
+if "addresses" not in fStorage:
+    res = {'status': 'Error', 'error':'No addresses specified'}
+    print json.dumps(res)
+    sys.exit()
+myaddresses = fStorage["addresses"].value.split(",")
 
-print >> sys.stderr, rawinp
 
 #print myaddresses
 
@@ -70,10 +77,8 @@ try:
 except Exception:
   print '{}'; sys.exit()
 data = res.read()
-
 #print data
 #sys.exit()
-
 res = json.loads(data)
 uo = res['unspent_outputs']
 
@@ -92,9 +97,8 @@ for r in uo:
 
 unspent = {}
 for t, v in trans.items():
-  if v != 'spent':
-    unspent[t] = v
-
+    if v != 'spent':
+        unspent[t] = v
 print json.dumps(unspent)
 #print unspent
 

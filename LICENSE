@@ -1,26 +1,16 @@
-This project is based on the work of many other free and open source projects.
+EZWallet - Browser based bitcoin wallet
+Copyright (C) 2013 Micheal Swiggs
 
-jQuery
-    code https://github.com/jquery/jquery
-    license https://jquery.org/license/
-Twitter Bootstrap
-    code https://github.com/twitter/bootstrap
-    license https://github.com/twitter/bootstrap/blob/master/LICENSE
-Electrum
-    code https://github.com/spesmilo/electrum-server
-    license https://github.com/spesmilo/electrum-server/blob/master/LICENSE
-BitcoinJS
-    code https://github.com/bitcoinjs/
-    license https://github.com/bitcoinjs/bitcoinjs-server/blob/master/LICENSE.txt
-BrainWallet 
-    code https://github.com/brainwallet/brainwallet.github.com 
-    license https://github.com/brainwallet/brainwallet.github.com/blob/master/LICENSE
-Crypto-JS 
-    code http://code.google.com/p/crypto-js/ 
-    license http://code.google.com/p/crypto-js/wiki/License
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-The work done in this project is public domain. But please check the licenses of
-other projects used by this project to see if your intended use is allowed by the
-license.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
 
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
