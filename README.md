@@ -17,3 +17,4 @@ A secure, deterministic, online and offline browser wallet.
 
 You can try it out here: http://brollet.org:9696
 
+#Installation
