@@ -19,26 +19,29 @@ You can try it out here: http://brollet.org:9696
 
 #Installation
 
-##On Unix or Mac
+###On Unix or Mac
 
 Make sure your system has Python installed.
-
-cd ew
-./startit
-
+```
+./brollet start
+```
 Open a web browser to http://localhost:9696 or http://yourDomain:9696
 
 to stop it run:
-./stopit
+```
+./brollet stop
+```
 
 
 
-##On Windows
+###On Windows
 
 Make sure your system has Python installed.
 
 Open a command prompt window
+```
 cd ew
+```
 
 Edit the httpd.bat file to set the path to your python.exe
 httpd.bat
