@@ -1,5 +1,0 @@
-
-To change the settings from the Settings page you need to first edit the file
-   web/cgi-bin/config.json
-and set the "password" field.
-
