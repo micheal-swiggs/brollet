@@ -48,7 +48,7 @@ httpd.bat
 
 Open a web browser to http://localhost:9696 
 
-##Settings
+#Settings
 To change the settings from the Settings page you need to first edit the file
    web/cgi-bin/config.json
 and set the "password" field.
