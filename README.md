@@ -19,9 +19,7 @@ You can try it out here: http://brollet.org:9696
 
 #Installation
 
-==========
-On Unix or Mac
-==========
+##On Unix or Mac
 
 Make sure your system has Python installed.
 
@@ -35,9 +33,7 @@ to stop it run:
 
 
 
-==========
-On Windows
-==========
+##On Windows
 
 Make sure your system has Python installed.
 
