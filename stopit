@@ -1,1 +1,1 @@
-killall python
+kill `ps -ef | grep 'python ../webServer' | grep -v grep | awk '{print $2}'`
