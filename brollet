@@ -6,6 +6,14 @@ function show_commands {
     echo "    clean"
 }
 
+function check_log_dir {
+    if [ ! -d "logs" ]
+    then
+	mkdir logs
+	echo "Logs directory created."
+    fi
+}
+
 if [ $# -lt 1 ]
 then
     echo "Please specify a brollet command, e.g"
@@ -15,6 +23,7 @@ fi
 
 if [ $1 == "start" ]
 then
+    check_log_dir
     ./httpd.sh $2 2>> logs/web.log &
 elif [ $1 == "stop" ]
 then

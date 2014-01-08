@@ -3,19 +3,22 @@
 # reads JSON and outputs JSON
 # given a transaction, send it to the bitcoin network
 
-# Using blockchain.info/pushtx to send the transaction
+# Using electrum to send the transaction
 
 import cgi
 import sys
 import os
 import json
 import re
-import urllib2
-import logging
+from subprocess import Popen, PIPE, STDOUT
 
-logging.basicConfig(filename='../logs/debug.log', level=logging.DEBUG)
+def readConf():
+  c = open('cgi-bin/config.json', 'r').read()
+  o = json.loads(c)
+  return o
 
-print "Content-type: text/plain\n"
+
+print "Content-type: application/json;charset=UTF-8\n"
 
 fStorage = cgi.FieldStorage()
 try:
@@ -40,14 +43,15 @@ if len(tx) < 50:
   print json.dumps(res)
   sys.exit()
 
+# Now send the transaction
+os.chdir('cgi-bin/electrum')
+pyt = sys.executable
+cmd = pyt+' electrum -s electrum.drollette.com:50002:s sendrawtransaction '+tx
 
-url = "http://blockchain.info/pushtx"
-data = "tx="+tx
-req = urllib2.Request(url, data)
-response = urllib2.urlopen(req)
-output = response.read()
+#res = {'status':'OK', 'tid':'abc '+cmd}; print json.dumps(res); sys.exit()
 
-
+p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+output = p.stdout.read()
 if re.search(r'error', output, re.I):
   res = {'status':'Error', 'error':output}
 else:

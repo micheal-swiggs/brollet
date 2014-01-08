@@ -34,7 +34,7 @@
         <div class="container"> 
             <a class="btn btn-navbar" data-target=".nav-collapse" data-toggle="collapse"> 
             <span class="icon-bar"></span> <span class="icon-bar"></span> 
-            <span class="icon-bar"></span> </a> <a class="brand" href="/">Brollet <font size=2><!-- for Bitcoin --></font></a> 
+            <span class="icon-bar"></span> </a> <a class="brand" href="/">Brollet <font size=2>Alpha</font></a> 
             <div class="nav-collapse"> 
                 <ul class="nav">
                     <li class="active"><a data-toggle="tab" href="#home" id="tab-home" onclick="$('.btn-navbar').click()">Wallet</a></li> 
@@ -135,28 +135,39 @@
             </form>
     <!-- Balance -->
             <form action="/" class="form-horizontal hide" method="get" id="homeMainForm">
-            <fieldset> <legend>Balance</legend> 
-                <div class="control-group"> 
-                    <label class="control-label" for="homeSend"></label> 
-                    <div class="controls"> 
-                        <button class="btn" id="homeSendBtn" type="button">Send</button> 
-                        <button class="btn" id="homeReceiveBtn" type="button">Receive</button> 
+            <fieldset> <legend>Home</legend>
+                <div class="control-group">
+                    <label class="control-label" for="homeSend">General</label>
+                    <div class="controls">
+                        <button class="btn" id="homeSendBtn" type="button">Send</button>
+                        <button class="btn" id="homeReceiveBtn" type="button">Receive</button>
                         <button class="btn" id="homeTransactionsBtn" type="button">Transactions</button>
-                        <button class="btn" id="homeRedeemBtn" type="button">Redeem</button> 
-                        <button class="btn" id="homeRecoverBtn" type="button">Recover</button> 
+                        <button class="btn" id="homeRedeemBtn" type="button">Redeem</button>
+                        <button class="btn" id="homeRecoverBtn" type="button">Recover</button>
                     </div>
                 </div>
-                <div class="control-group"> 
-                    <label class="control-label" for="homeBalance">Balance</label> 
-                    <div class="controls"> 
-                        <label class="span5" for="homeBalanceLabel" id="homeBalanceLabel"></label> 
+
+                <div class="control-group">
+                    <label class="control-label">Multisignature</label>
+                    <div class="controls">
+                        <button class="btn" id="multiSigSendBtn" type="button">New Redeemscript</button>
+                        <button class="btn" id="multiSigRedeemComposeBtn" type="button">Spend</button>
+                        <button class="btn" id="multiSigRedeemSignHexBtn" type="button">Sign</button>
+                        <button class="btn" id="multiSigPubkeysBtn" type="button">Public Keys</button>
                     </div>
                 </div>
-                <div class="control-group"> 
-                    <label class="control-label" for="homeBalance"></label> 
-                    <div class="controls"> 
-                        <button class="btn" id="homeReloadBalBtn" title="Reload the current balance from the network." type="button"><i class="icon-repeat"></i></button> 
-                        <button class="btn" id="homeCloseBtn" type="button" title="Close wallet.">Close</button> 
+
+                <div class="control-group">
+                    <label class="control-label" for="homeBalance">Balance</label>
+                    <div class="controls">
+                        <label class="span5 no-margin-left" for="homeBalanceLabel" id="homeBalanceLabel"></label>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label" for="homeBalance"></label>
+                    <div class="controls">
+                        <button class="btn" id="homeReloadBalBtn" title="Reload the current balance from the network." type="button"><i class="icon-repeat"></i></button>
+                        <button class="btn" id="homeCloseBtn" type="button" title="Close wallet.">Close</button>
                     </div>
                 </div>
             </fieldset>
@@ -164,26 +175,24 @@
     <!-- Send -->
             <form action="/" class="form-horizontal hide" method="get" id="homeSendForm">
             <fieldset> <legend>Send</legend> 
+                <ul class="breadcrumb weak-breadcrumb">
+                    <li><a class="homeSendCancelBtn">Home</a> <span class="divider">/</span></li>
+                    <li>General<span class="divider">/</span></li>
+                    <li class="active">Send</li>
+                </ul>
+
                 <div class="control-group"> 
                     <label class="control-label" for="homeSendBalanceBefore">Balance Before</label> 
                     <div class="controls"> 
-                        <label class="span5" for="homeSendBalanceBefore" id="homeSendBalanceBefore"></label> 
+                        <label class="span5 no-margin-left" for="homeSendBalanceBefore" id="homeSendBalanceBefore"></label> 
                     </div>
                 </div>
-<!--
-                <div class="control-group"> 
-                    <label class="control-label" for="homeSendFrom">From Address</label> 
-                    <div class="controls"> 
-                        <input class="span5" id="homeSendFrom"> 
-                    </div>
-                </div>
--->
                 <div class="control-group"> 
                     <label class="control-label" for="homeSendBy">Send By</label> 
                     <div class="controls"> 
                         <div class="btn-group" data-toggle="buttons-radio" id="homeSendBy"> 
                             <button class="btn active" id="homeSendByAddressBtn" type="button">Address</button> 
-                            <button class="btn" id="homeSendByEmailBtn" type="button">Email</button> 
+                            <button class="btn" id="homeSendByEmailBtn" type="button">Email (caution: experimental)</button> 
                         </div>
                     </div>
                 </div>
@@ -198,7 +207,7 @@
                 <div class="control-group hide" id="homeSendFromEmailDiv"> 
                     <label class="control-label" for="homeSendToEmail">*From Email</label>
                     <div class="controls"> 
-                        <span class="span5" id="homeSendFromEmail" title="Email address of the sender." ></span>
+                        <span class="span5 no-margin-left" id="homeSendFromEmail" title="Email address of the sender." ></span>
                     </div>
                 </div>
                 <div class="control-group hide" id="homeSendToEmailDiv"> 
@@ -247,12 +256,9 @@
                 <div class="control-group"> 
                     <label class="control-label" for="homeSend"></label> 
                     <div class="controls"> 
-                        <button class="btn" id="homeSendCancelBtn" type="button">Cancel</button> 
+                        <button class="btn homeSendCancelBtn" id="homeSendCancelBtn" type="button">Cancel</button> 
                         <button class="btn" id="homeSendSendBtn" type="button">Send It</button>
                         <button class="btn hide" id="showEmailCodeBtn" type="button">Show code</button>
-<!--
-                        <button class="btn" id="homeSendShowBtn" type="button">Show It</button> 
--->
                     </div>
                 </div>
             </fieldset>
@@ -282,7 +288,13 @@
             </form>
     <!-- Receive -->
             <form action="/" class="form-horizontal hide" method="get" id="homeReceiveForm">
-            <fieldset> <legend>Receive</legend> 
+            <fieldset> <legend>Receive</legend>
+                <ul class="breadcrumb weak-breadcrumb">
+                    <li><a class="homeReceiveBackBtn">Home</a> <span class="divider">/</span></li>
+                    <li>General<span class="divider">/</span></li>
+                    <li class="active">Receive</li>
+                </ul>
+
                 <div class="control-group"> 
                     <label class="control-label" for="homeReceiveAddresses">Addresses</label> 
                     <div class="controls"> 
@@ -292,13 +304,13 @@
                 <div class="control-group"> 
                     <label class="control-label" for="homeReceiveBalance">Balance</label> 
                     <div class="controls"> 
-                        <label class="span5" for="homeReceiveBalance" id="homeReceiveBalance"></label> 
+                        <label class="span5 no-margin-left" for="homeReceiveBalance" id="homeReceiveBalance"></label> 
                     </div>
                 </div>
                 <div class="control-group"> 
                     <label class="control-label" for="homeReceiveBack"></label> 
                     <div class="controls"> 
-                        <button class="btn" id="homeReceiveBackBtn" type="button">Back</button> 
+                        <button class="btn homeReceiveBackBtn" id="homeReceiveBackBtn" type="button">Back</button> 
                     </div>
                 </div>
             </fieldset>
@@ -307,10 +319,16 @@
             <div class="form-horizontal hide" id="homeTransactions">
                 <fieldset>
                     <legend>Transactions</legend>
+                    <ul class="breadcrumb weak-breadcrumb">
+                        <li><a class="homeTransactionsBackBtn">Home</a> <span class="divider">/</span></li>
+                        <li>General<span class="divider">/</span></li>
+                        <li class="active">Transactions</li>
+                    </ul>
+
                         <div class="control-group">
                             <div class="controls">
                                 <div id="transactions-table"></div>
-                                <div class="btn" id="homeTransactionsBackBtn" type="button">Back</button>
+                                <div class="btn homeTransactionsBackBtn" id="homeTransactionsBackBtn" type="button">Back</button>
                             </div>
                         </div>
                 </fieldset>
@@ -318,6 +336,12 @@
     <!-- Redeem -->
             <form action="/" class="form-horizontal hide" method="get" id="homeRedeemForm">
             <fieldset> <legend>Redeem</legend> 
+                <ul class="breadcrumb weak-breadcrumb">
+                    <li><a class="homeRedeemCancelBtn">Home</a> <span class="divider">/</span></li>
+                    <li>General<span class="divider">/</span></li>
+                    <li class="active">Redeem</li>
+                </ul>
+
                 <div class="control-group"> 
                     <label class="control-label" for="homeRedeemCode">*Code</label> 
                     <div class="controls"> 
@@ -350,19 +374,14 @@
                 </div>
                 <div class="control-group" id="homeRedeemPrivateKeys">
                     <label class="control-label" for="homeRedeemPrKeys"></label>
-<<<<<<< HEAD
                     <div class="controls">
-                        <input id="importedTransfer" type="checkbox" checked="true" style="height: 16px;"/><span style="margin-left: 10px;">Transfer to an Brollet address.</span>
-=======
-                    <div class="controls" style="display:none">
-                        <input id="importedTransfer" type="checkbox" checked="true" style="height: 16px;"/><span style="margin-left: 10px;">Transfer to an EZWallet address.</span>
->>>>>>> recover_changes
+                        <input id="importedTransfer" type="checkbox" checked="true" style="height: 16px;"/><span style="margin-left: 10px;">Transfer to a Brollet address.</span>
                     </div>
                 </div>
                 <div class="control-group"> 
                     <label class="control-label" for="homeRedeemNowBtn"></label> 
                     <div class="controls"> 
-                        <button class="btn" id="homeRedeemCancelBtn" type="button">Cancel</button> 
+                        <button class="btn homeRedeemCancelBtn" id="homeRedeemCancelBtn" type="button">Cancel</button> 
                         <button class="btn" id="homeRedeemNowBtn" type="button">Redeem</button> 
                     </div>
                 </div>
@@ -371,6 +390,12 @@
     <!-- Recover -->
             <form action="/" class="form-horizontal hide" method="get" id="homeRecoverForm">
             <fieldset> <legend>Recover</legend> 
+                <ul class="breadcrumb weak-breadcrumb">
+                    <li><a class="homeRecoverCancelBtn">Home</a> <span class="divider">/</span></li>
+                    <li>General<span class="divider">/</span></li>
+                    <li class="active">Recover</li>
+                </ul>
+
                 <div class="control-group"> 
                     <label class="control-label" for="homeRecoverEmail">* To Email</label> 
                     <div class="controls"> 
@@ -408,12 +433,358 @@
                 <div class="control-group"> 
                     <label class="control-label" for="homeRecoverNowBtn"></label> 
                     <div class="controls"> 
-                        <button class="btn" id="homeRecoverCancelBtn" type="button">Cancel</button> 
+                        <button class="btn homeRecoverCancelBtn" id="homeRecoverCancelBtn" type="button">Cancel</button> 
                         <button class="btn" id="homeRecoverNowBtn" type="button">Recover</button> 
                     </div>
                 </div>
             </fieldset>
             </form>
+
+            <div class="form-horizontal hide" id="multiSigRedeemSignHex">
+                <fieldset>
+                    <legend>Sign</legend>
+
+                    <ul class="breadcrumb weak-breadcrumb">
+                        <li><a class="cancelMultiSigSignBtn">Home</a> <span class="divider">/</span></li>
+                        <li>Multisignature <span class="divider">/</span></li>
+                        <li class="active">Sign</li>
+                    </ul>
+
+                    <div class="control-group">
+                        <label class="control-label"></label>
+                        <div class="controls">
+                            <label class="span5 no-margin-left" id="multiSigRedeemSignTitle">M out of N Script</label>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemSignTxHex">Transaction Hex</label>
+                        <div class="controls">
+                            <textarea class="span5" id="multiSigRedeemSignTxHex" rows="3" placeholder="Enter transaction here"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemSignAddress">Multisig Address</label>
+                        <div class="controls">
+                            <input class="span5" id="multiSigRedeemSignAddress" readonly>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemSignNsigs">Signatures</label>
+                        <div class="controls">
+                            <label class="span5 no-margin-left" id="multiSigRedeemSignNsigs"></label>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemSignBalBefore">Before Balance</label>
+                        <div class="controls"> 
+                            <label class="span5 no-margin-left" id="multiSigRedeemSignBalBefore"></label> 
+                        </div>
+                    </div>
+                    
+                    <hr />
+
+                    <div id="multiSigRedeemSignOutputs">
+                        <div class="control-group">
+                            <label class="control-label">Recipients</label>
+                            <div class="controls controls-row">
+                                <input class="span2 btc-address" type="text" readonly>
+                                <input class="span2 btc-amount text-right" type="text" readonly>
+                            </div>
+                        </div>
+
+                        <div class="control-group sign-output-row-base hide">
+                            <div class="controls controls-row">
+                                <input class="span2 btc-address" type="text" readonly>
+                                <input class="span2 btc-amount text-right" type="text" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemSignFee">Fee</label>
+                        <div class="controls">
+                            <input class="span2 invisible">
+                            <input class="span2 text-right" id="multiSigRedeemSignFee" readonly>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemSignTotal">Total</label>
+                        <div class="controls">
+                            <input class="span2 invisible">
+                            <input class="span2 text-right" id="multiSigRedeemSignTotal" readonly>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="control-group">
+                        <label class="control-label">Can Sign?</label>
+                        <div class="controls">
+                            <button class="btn" id="multiSigRedeemTxSignBtn" disabled>Sign</button>
+                            <div class="input-append">
+                                <span class="add-on" id="multiSigRedeemTxPrivkey"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label">Broadcast?</label>
+                        <div class="controls">
+                            <button class="btn" id="multiSigRedeemSignBroadcastBtn" disabled>Broadcast</button>
+                            <div class="input-append">
+                                <div class="add-on" id="multiSigRedeemSignBroadcastSpan"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label">Encoded Transaction</label>
+                        <div class="controls">
+                                <textarea class="span5" id="multiSigRedeemSignEncodedTx" rows="10" placeholder="The encoded transaction will be placed here." readonly></textarea>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="controls">
+                            <button class="btn cancelMultiSigSignBtn">Cancel</button>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div class="form-horizontal hide" id="multiSigCompose">
+                <fieldset>
+                    <legend>Spend</legend>
+                    <ul class="breadcrumb weak-breadcrumb">
+                        <li><a class="cancelMultiSigSpendBtn">Home</a> <span class="divider">/</span></li>
+                        <li>Multisignature <span class="divider">/</span></li>
+                        <li class="active">Spend</li>
+                    </ul>
+
+                    <div class="control-group">
+                        <label class="control-label"></label>
+                        <div class="controls">
+                            <label class="span5 no-margin-left" id="multiSigRedeemTitle">M out of N Script</label>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemRscript">Redeem Script</label>
+                        <div class="controls">
+                            <textarea class="span5" id="multiSigRedeemRscript" rows="7" placeholder="Enter the Redeem Script here"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemAddress">Address</label>
+                        <div class="controls">
+                            <input class="span5" id="multiSigRedeemAddress" placeholder="Multisignature Address" readonly>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemBalance">Balance</label>
+                        <div class="controls">
+                            <label class="span5 no-margin-left" id="multiSigRedeemBalance"></label>
+                        </div>
+                    </div>
+                    
+                    <div id="multiSigRedeemOutputs">
+                        <div class="control-group seen">
+                            <label class="control-label" for="multiSigRedeemAddOutput">Outputs</label>
+                            <div class="controls controls-row">
+                                <input class="span2 btc-address process-multisig-redeem-input" type="text" placeholder="Address">
+                                <input class="span2 btc-amount process-multisig-redeem-input" type="text" placeholder="Amount (BTC)">
+                            </div>
+                        </div>
+
+                        <div class="control-group output-row-base hide">
+                            <div class="controls controls-row">
+                                <input class="span2 btc-address process-multisig-redeem-input" type="text" placeholder="Address">
+                                <input class="span2 btc-amount process-multisig-redeem-input" type="text" placeholder="Amount (BTC)">
+                                <button class="btn hide-grandparent" type="button">X</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="controls">
+                            <button class="btn" id="multiSigRedeemAddOutput" type="button">Add output</button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemChangeAddress">Change Address</label>
+                        <div class="controls">
+                            <input class="span5 process-multisig-redeem-input" type="text" id="multiSigRedeemChangeAddress" placeholder="Leave blank to use source address.">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigRedeemFeeAmt">Fee</label>
+                        <div class="controls">
+                            <input class="span5 process-multisig-redeem-input" id="multiSigRedeemFeeAmt" type="text" placeholder="Transaction fee">
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="control-group">
+                        <label class="control-label">Can Sign?</label>
+                        <div class="controls">
+                            <button class="btn" id="multiSigRedeemSignBtn" disabled>Sign</button>
+                            <div class="input-append">
+                                <span class="add-on" id="multiSigRedeemPrivkey"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label">Encoded Transaction</label>
+                        <div class="controls">
+                                <textarea class="span5" id="multiSigRedeemEncodedTx" rows="10" placeholder="The encoded transaction will be placed here." readonly></textarea>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="controls">
+                            <button class="btn cancelMultiSigSpendBtn">Cancel</button>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div class="form-horizontal hide" id="multiSigPubkeys">
+                <fieldset>
+                    <legend>Public Keys</legend>
+                    <ul class="breadcrumb weak-breadcrumb">
+                        <li><a class="multiSigPubkeysHideBtn">Home</a> <span class="divider">/</span></li>
+                        <li>Multisignature <span class="divider">/</span></li>
+                        <li class="active">Public Keys</li>
+                    </ul>
+                    <div class="control-group">
+                        <div class="controls">
+                        <div class="span5 no-margin-left">
+                            This table contains your public keys. Each bitcoin address is generated from a public key.
+                            Public keys are needed for generating a redeem script. You can copy any public key when generating a redeem script.
+                        </div>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="controls">
+                        <table class='table table-bordered table-striped span5 no-margin-left pubkeys-table'>
+                            <thead><tr><th>#</th><th>Public Key in hex</th></tr></thead>
+                            <tbody id="pubkeys-table-body">
+                            
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="controls">
+                            <button class="btn multiSigPubkeysHideBtn">Hide</button>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div class="form-horizontal hide" id="homeMultiSigSend">
+                <fieldset>
+                    <legend>New Redeemscript</legend>
+                    <ul class="breadcrumb weak-breadcrumb">
+                        <li><a class="multiSigCancelBtn">Home</a> <span class="divider">/</span></li>
+                        <li>Multisignature <span class="divider">/</span></li>
+                        <li class="active">New Redeemscript</li>
+                    </ul>
+                    <div class="control-group"> 
+                        <label class="control-label" for="multiSigSendBalanceBefore">Balance Before</label> 
+                        <div class="controls"> 
+                            <label class="span5 no-margin-left" id="multiSigSendBalanceBefore"></label> 
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="brolletPubKey">Your Brollet Public Key</label>
+                        <div class="controls">
+                            <input class="span5 multisigsend-pubkey" id="brolletPubKey" title="" > 
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="otherPubKey1">*Second Public Key</label>
+                        <div class="controls">
+                            <input class="span5 multisigsend-pubkey" id="otherPubKey1" placeholder="Another public key, maybe a friend or trusted party (required)" >
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="otherPubKey2">Third Public Key</label>
+                        <div class="controls">
+                            <input class="span5 multisigsend-pubkey" id="otherPubKey2" placeholder="Another public key (optional)" >
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="sendSigsRequired">No. Signatures</label>
+                        <div class="controls">
+                            <input class="span5" id="sendSigsRequired" placeholder="Number of signatures required to unlock the bitcoins." >
+                        </div>
+                    </div>
+                    <hr />
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigSendAddress">Address</label>
+                        <div class="controls">
+                            <input class="span5" id="multiSigSendAddress" placeholder="Multisignature Address" readonly>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="multiSpendAmt">*Amount to send</label>
+                        <div class="controls">
+                            <input class="span5" id="multiSigSpendAmt">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigSpendFee">Fee</label>
+                        <div class="controls">
+                            <input class="span5" id="multiSigSpendFee">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigSendBalanceAfter">Balance After</label>
+                        <div class="controls">
+                            <label class="control-label" id="multiSigSendBalanceAfter"></label>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label" for="homeSend"></label>
+                        <div class="controls">
+                            <button class="btn multiSigCancelBtn" id="multiSigCancelBtn" type="button">Cancel</button>
+                            <button class="btn" id="multiSigSpendBtn" type="button">Send It</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label"></label>
+                        <div class="controls">
+                            <p class="span5" style="margin-left:0">The redeem script is needed to spend bitcoins from the Multisignature
+                            address. It is a good idea to record the redeem script. All public key holders should
+                            receive a copy of the redeem script.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="multiSigSendRedeemScript">Redeem Script</label>
+                        <div class="controls">
+                            <textarea class="span5" id="multiSigSendRedeemScript" rows="10" placeholder="Generated from public keys and number of signatures required." readonly></textarea>
+                        </div>
+                    </div>
+
+                </fieldset>
+            </div>
+
 <form action="/" class="form-horizontal hide" method="get" id="qrscanForm">
   <fieldset>
     <legend>Scan QR Code</legend>
@@ -475,7 +846,7 @@
                     <label class="control-label" for="advancedWalletType">Wallet Type</label> 
                     <div class="controls"> 
                         <div class="btn-group" data-toggle="buttons-radio" id="advancedWalletType"> 
-                            <button class="btn active" id="advancedEZBtn" type="button">EZ</button> 
+                            <button class="btn active" id="advancedEZBtn" type="button">Brollet</button> 
                             <button class="btn" id="advancedArmoryBtn" type="button">Armory</button> 
                             <button class="btn" id="advancedElectrumBtn" type="button">Electrum</button> 
                             <button class="btn" id="advancedKeysBtn" type="button">Keys</button> 
@@ -613,9 +984,6 @@
                 <div class="control-group"> 
                     <label class="control-label" for="advancedReceiveBalance">Balance</label> 
                     <div class="controls"> 
-<!--
-                        <label class="control-label span5" for="advancedReceiveBalance" id="advancedReceiveBalance"></label> &nbsp; &nbsp; 
--->
                         <label class="span5" for="advancedReceiveBalance" id="advancedReceiveBalance"></label> 
                     </div>
                 </div>
@@ -825,7 +1193,7 @@
 
 <script src="js/jquery.qrcode.min.js"></script> 
 <script src="js/bootstrap.min.js"></script> 
-<script src="js/bitcoinjs-min.js"></script> 
+<script src="js/bitcoinjs-min.js"></script>
 <script src="js/rfc1751.js"></script> 
 <script src="js/mnemonic.js"></script> 
 <script src="js/armory.js"></script> 

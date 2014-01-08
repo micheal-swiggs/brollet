@@ -1,30 +1,237 @@
-(function($){
-    Bitcoin.TransactionOut.prototype.valueAsInt = function () {
-        var cpy = [];
-        for (var i=0; i<this.value.length; i++){
-            cpy.push(this.value[i]);
+(function (exports){
+    var Brollet = exports;
+    Brollet.MultiSigScript = function (scriptBytes, hash) {
+        this.script = new Bitcoin.Script(scriptBytes);
+        this.redeemScript = new Brollet.RedeemScript(this.script.chunks[this.script.chunks.length-1]);
+        this.pubkeys = this.redeemScript.pubkeys;
+        var signatures = [];
+
+        var scriptChunks = this.script.chunks;
+        for (var i=1; i<scriptChunks.length-1; i++){
+            signatures.push(scriptChunks[i]);
         }
-        cpy.reverse();
-        return parseInt( new BigInteger(cpy).toString());
+        this.signatures = signatures;
+        this.hash = hash;
+        this.sortSignatures();
     }
 
-    Bitcoin.TransactionOut.create = function (addr, amt){
-        if(!(addr instanceof Bitcoin.Address) && !(amt instanceof BigInteger)){
-            throw "Type error"
+    Brollet.MultiSigScript.prototype.toScript = function () {
+        var result = new Bitcoin.Script();
+        result.writeOp(Bitcoin.Opcode.map.OP_0);
+        var signatures = this.signatures;
+        for (var i=0; i<signatures.length; i++){
+            result.writeBytes(signatures[i]);
         }
-        var value = amt.toByteArrayUnsigned().reverse();
-        while (value.length < 8)value.push(0);
-        return new Bitcoin.TransactionOut({value: value, script: Bitcoin.Script.createOutputScript(addr) })
+        result.writeBytes(this.redeemScript.script.buffer);
+        return result;
     }
+
+    Brollet.MultiSigScript.prototype.isComplete = function () {
+        return this.signatures.length >= this.redeemScript.nRequired;
+    }
+
+    Brollet.MultiSigScript.prototype.addSignature = function (signature){
+        this.signatures.push(signature);
+        this.sortSignatures();
+    }
+
+    Brollet.MultiSigScript.prototype.sortSignatures = function () {
+        var hash = this.hash;
+
+        this.validateSignatures ();
+        var pubkeys = this.pubkeys.slice(0);
+        var signatures = this.signatures.slice(0);
+        var takenSigs = [];
+        var result = [];
+
+        for (var i=0; i<pubkeys.length; i++){
+            var pubkey = pubkeys[i];
+            for (var j=0; j<signatures.length; j++){
+                if (takenSigs.indexOf(j) != -1) continue;
+                var sig = signatures[j];
+                if (Bitcoin.ECDSA.verify(hash, sig, pubkey)){
+                    takenSigs.push(j);
+                    result.push(sig);
+                    break;
+                }
+            }
+        }
+        if (result.length != signatures.length){
+            throw Error("Signature sorting failed");
+        }
+        this.signatures = result;
+    }
+    Brollet.MultiSigScript.prototype.validateSignatures = function () {
+        var hash = this.hash;
+        var pubkeys = this.pubkeys.slice(0);
+        var signatures = this.signatures.slice(0);
+        var takenPubkeys = [];
+        for(var i=0; i<signatures.length; i++){
+            var sig = signatures[i];
+            var validSig = false;
+            for (var j=0; j<pubkeys.length; j++){
+                if (takenPubkeys.indexOf(j) != -1){
+                    continue;
+                }
+                var pubkey = pubkeys[j];
+                if (Bitcoin.ECDSA.verify(hash, sig, pubkey)){
+                    validSig = true;
+                    takenPubkeys.push(j);
+                    break;
+                }
+            }
+            if (!validSig){
+                throw Error("Signature validation failed for: "+Crypto.util.bytesToHex(sig));
+            }
+        }
+
+        var unsignedPubkeys = [];
+        var signedPubkeys = [];
+        for(var i=0; i<pubkeys.length; i++){
+            if (takenPubkeys.indexOf(i) != -1){
+                signedPubkeys.push(pubkeys[i]);
+            }else{
+                unsignedPubkeys.push(pubkeys[i]);
+            }
+        }
+        return {unsignedPubkeys: unsignedPubkeys, signedPubkeys: signedPubkeys};
+
+    }
+    Brollet.MultiSigScript.prototype.unsignedPubkeys = function () {
+        return this.validateSignatures().unsignedPubkeys;
+    }
+    Brollet.MultiSigScript.prototype.signedPubkeys = function () {
+        return this.validateSignatures().signedPubkeys;
+    }
+    /*
+    *  Expects redeem-script bytes
+    */
+    Brollet.RedeemScript = function (redeemScriptBytes) {
+        this.script = new Bitcoin.Script(redeemScriptBytes);
+        this.scriptChunks = this.script.chunks;
+        this.nRequired = this.scriptChunks[0] - Bitcoin.Opcode.map.OP_1 + 1;
+        this.nPubkeys = this.scriptChunks[this.scriptChunks.length-2] - Bitcoin.Opcode.map.OP_1 + 1;
+
+        //Collect public keys from redeem-script.
+        var pubkeys = [];
+        for (var i=0; i<this.nPubkeys; i++){
+            pubkeys.push(this.scriptChunks[i+1]);
+        }
+        this.pubkeys = pubkeys;
+    }
+
+    Brollet.RedeemScript.prototype.getAddress = function () {
+        return Bitcoin.Address.fromMultiSigScript(this.script.buffer);
+    }
+
+    Brollet.OutputsRequester = function(addresses){
+        this.outputs = null;
+        this.singleListeners = [];
+        var tihs = this;
+        function t(i){tihs.processOutputs(i);};
+        $.post('cgi-bin/unspent.py', {addresses: addresses.join(",")}, t);
+    }
+
+    Brollet.OutputsRequester.prototype.processOutputs = function (outputs){
+        this.outputs = outputs;
+        var sListeners = this.singleListeners.slice(0);
+        this.singleListeners = null;
+        for (var i=0; i<sListeners.length; i++){
+            sListeners[i](outputs);
+        }
+    }
+
+    Brollet.OutputsRequester.prototype.addSingleListener = function (listener){
+        if(this.outputs != null){
+            listener(this.outputs);
+        }else{
+            this.singleListeners.push(listener);
+        }
+    }
+
+    Brollet.Key = function (hexKey) {
+        this.hexKey = hexKey;
+    }
+
+    Brollet.Key.prototype.getECKey = function () {
+        var bigIntKey = new BigInteger(this.hexKey, 16)
+            .mod(getSECCurveByName("secp256k1").getN());
+        return new Bitcoin.ECKey(bigIntKey);
+    }
+
+    Brollet.Key.prototype.pubKeyAsHex = function () {
+        var eckey = this.getECKey();
+        return Crypto.util.bytesToHex(eckey.getPub());
+    }
+
+    Brollet.Key.prototype.pubKeyAsBytes = function () {
+        return this.getECKey().getPub();
+    }
+
+    Brollet.Key.prototype.getBitcoinAddress = function () {
+        var eckey = this.getECKey();
+        var pub = eckey.getPub();
+        var pubKeyHash = Bitcoin.Util.sha256ripe160(pub);
+        return new Bitcoin.Address(pubKeyHash);
+    }
+
+    Brollet.Key.prototype.base58Address = function () {
+        return this.getBitcoinAddress().toString();
+    }
+
+})(
+'object' === typeof module ? module.exports : (window.Brollet = {})
+);
+
+function getEncoded(pt, compressed) {
+   var x = pt.getX().toBigInteger();
+   var y = pt.getY().toBigInteger();
+   var enc = integerToBytes(x, 32);
+   if (compressed) {
+     if (y.isEven()) {
+       enc.unshift(0x02);
+     } else {
+       enc.unshift(0x03);
+     }
+   } else {
+     enc.unshift(0x04);
+     enc = enc.concat(integerToBytes(y, 32));
+   }
+   return enc;
+}
+
+function pad(str, len, ch) {
+    padding = '';
+    for (var i = 0; i < len - str.length; i++) {
+        padding += ch;
+    }
+    return padding + str;
+}
+
+function decodeBitcoinQtPrivKey(sec){
+    var res = parseBase58Check(sec);
+    var version = res[0];
+    var payload = res[1];
+    var compressed = false;
+    if (payload.length > 32) {
+        payload.pop();
+        compressed = true;
+    }
+    var eckey = new Bitcoin.ECKey(payload);
+    eckey.version = version;
+    return eckey;
+}
+
+(function($){
 
 
     var DEFAULT_BLOCK_PRIORITY_SIZE = 27000;
-    var CENT = 1000000;
+    var CENT = new BigInteger('1000000',10);
     var COIN = 100000000;
     var MAX_BLOCK_SIZE = 1000000;
     var MAX_BLOCK_SIZE_GEN = MAX_BLOCK_SIZE / 2;
     var MAX_STANDARD_TX_SIZE = MAX_BLOCK_SIZE_GEN / 5;
-    var minTxFee = 11000; //nMinTxFee - In the main client it is set as 10000.
+    var minTxFee = new BigInteger('10000', 10); //nMinTxFee - In the main client it is set as 10000.
 
     var gen_from = 'pass';
     var gen_compressed = false;
@@ -34,15 +241,16 @@
     var TIMEOUT = 600;
     var timeout = null;
 
-// Me - added these for the fast generation wallet
+    // added these for the fast generation wallet
     var Seed = {}
     var Keys = {}
     var ImportedKeys = {} //All keys imported into the wallet, for example keys sent via email.
-    var Unspent = {}
+    // Array of [{address: .., value: satoshis, txHash: ..., outputIndex: ..., confirmations: ...}, ....]
+    var Unspent = [];
     var Bal = {}
-    var TotBal = 0  // this is ReadyBal + PendingBal
-    var PendingBal = 0  // this is amount we received but not yet confirmed
-    var ReadyBal = 0  // this is the confirmed amount we received and ready to spend
+    var TotBal = BigInteger.ZERO;  // this is ReadyBal + PendingBal
+    var PendingBal = BigInteger.ZERO;  // this is amount we received but not yet confirmed
+    var ReadyBal = BigInteger.ZERO;  // this is the confirmed amount we received and ready to spend
     var WsizeDefault = 10
     var WsizeMax = 100
     var G = {}
@@ -340,8 +548,12 @@ function endian(string) {
 // use round instead of floor so that we don't lose small amounts due to floating percision
 function num2sathoshi(f){ return Math.round(f*100000000.0) }
 
+function btcToSatoshi(f){ return Math.round(f*100000000.0);}
+
 // given a number (float or int) return the number
 function sathoshi2num(f){ return f/100000000.0 }
+
+function satoshiToBtc (f) { return f/100000000.0 }
 
 // given an integer return a bit int
 function int2bigInt(n){ return new BigInteger(n.toString())}
@@ -383,7 +595,7 @@ function deSelectText() {
 
 function containsSubCentOutput (sendTx){
     for (var i=0; i<sendTx.outs.length; i++){
-        if (sendTx.outs[i].valueAsInt() < CENT) return true;
+        if (sendTx.outs[i].valueAsInt().compareTo(CENT) < 0) return true;
     }
     return false;
 }
@@ -412,10 +624,14 @@ function serializeTxOut (txOut){
 }
 
 function isDust (txOut){
-    var nMinRelayTxFee = 10000;
+    var nMinRelayTxFee = new BigInteger('10000',10);
     var nValue = txOut.valueAsInt();
-    var txOutSize = sizeOfTxOut (txOut);
-    return ((nValue*1000)/(3*(txOutSize+148))) < nMinRelayTxFee;
+    var txOutSize = new BigInteger(''+sizeOfTxOut (txOut), 10);
+    //return ((nValue*1000)/(3*(txOutSize+148))) < nMinRelayTxFee;
+    var buf = nValue.multiply (new BigInteger(''+1000, 10)) .divide(
+        new BigInteger('3', 10).multiply(txOutSize.add(new BigInteger(''+148, 10)))
+    );
+    return buf.compareTo(nMinRelayTxFee) < 0;
 }
 
 //Requires that transaction inputs have main chain depth.
@@ -425,7 +641,7 @@ function transactionPriority (sendTx){
     for(var i=0; i<sendTx.ins.length; i++){
         var txIn = sendTx.ins[i];
         var val = num2sathoshi(txIn.value);
-        var block = txIn.block;
+        var block = txIn.confirmations; //Could be Bug - double check transaction fee implmentation.
         priority += (val * (block +1));
     }
     var r = sendTx.serialize().length
@@ -433,165 +649,121 @@ function transactionPriority (sendTx){
     return result;
 }
 
-// from - a string of zero or more addresses seperated by space;
-//        the provided addresses will be used before picking other addresses to meet the amount+fee
-//        "" or "address1" or "address1 address2 ..."
-// to - a string of one or more address and amount pairs (seperated by space) sperated by space;
-//        "address amount" or "address1 amount1 address2 amount2 ..."
-// change - a string of zero or one address to return excess change;
-//        if not provided then the change is returned to the first from address given
-//        or the first picked address if the from address was not given
-// fee - a float or int or empty string which specifies the amount to pay in transaction fees
-//        "" or "0" or "4" or "2.4"
-function makeTxObj(from, to, change, fee){
-    return makeTxObjBase(from, to, change, fee, false)
-}
-function makeTxObjBase(from, to, change, fee, onlyFromAddrs){
-  var fromPairs, toPairs, feeTot, amtTot, toAddrAmtMap, toAddrs, i, adr, amt, amtFloat, amtTot, traz, tra, fundTot, returnTot
-  var sendTx, sentTot, amountBigInt, toAddr, hashType, inCount, tr, script, hash, tx, signHash, key, sign
-  var pkh, pk
+// from - list of zero or more addresses. [ addr1, ..., addrN ]
+// to - list of address, amount pairs. [ [addr1, BigInteger(val1)], [addr2, BigInteger(val2)]]
+// change - one address to accept transaction change.
+// fee - the fee amount to broadcast onto the network. BigInteger()
+function makeTxObj(from, to, changeAddress, feeAmt, onlyFromAddrs){
+    if (onlyFromAddrs == null) onlyFromAddrs = false;
+    var amountTotal = feeAmt;
+
+    for (var i=0; i<to.length; i++){
+        amountTotal = amountTotal.add(new BigInteger(''+to[i][1], 10));
+    }
+
+    if (amountTotal.compareTo(BigInteger.ZERO) <= 0){
+        alert("Amount must be greater than 0.");
+        return;
+    }
+
+    // get a list of unspent transaction we can send from; make sure the from address isn't also a to address
+    var txInputs = collectUnspentOutputs(from, amountTotal, to, onlyFromAddrs);
+    if (txInputs == null){ alert('Insufficient funds.'); return }
 
 
-  fromPairs = str2wordArr(from)
-  toPairs = str2wordArr(to)
-  if (toPairs.length < 2){ alert('Please complete the form.'); return }
-  change = trimWhiteSpace(change)
-  if ((fee == undefined) || (fee == '')){ fee = '0' }
-  feeFloat = parseFloat(fee)
-  amtTot = feeFloat
-  toAddrAmtMap = {}
-  toAddrs = []
-  for(i=0;i<toPairs.length;i+=2){
-    adr = toPairs[i]
-    amt = toPairs[i+1].replace(/[^\d\.]/g, '')
-    if (amt == ''){ amt = '0' }
-    amtFloat = parseFloat(amt)
-    amtTot += amtFloat
-    toAddrAmtMap[adr] = amtFloat
-    toAddrs.push(adr)
-  }
-  if (amtTot<=0.0){ alert('Amount must be greater than 0.'); return }
-// get a list of unspent transaction we can send from; make sure the from address isn't also a to address
-  traz = bitAddArr2transRefArr(fromPairs, amtTot, toAddrs, onlyFromAddrs);
-  if (traz == 0){ alert('Insufficient funds.'); return }
-  tra = traz[0]
-  fundTot = traz[1]
-  returnTot = fundTot - amtTot
-  returnTot = sathoshi2num(num2sathoshi(returnTot))
+    sendTx = new Bitcoin.Transaction()
+    // create the outputs
+    for(var i=0; i<to.length; i++){
+        var oPut = to[i];
+        toAddr = new Bitcoin.Address(oPut[0]);
 
+        sendTx.addOutput(toAddr, oPut[1]);
+        // add the address so it is easy to see on the debug page
+        sendTx.outs[sendTx.outs.length-1].address = oPut[0];
+        if (isDust(sendTx.outs[sendTx.outs.length-1])){
+            alert("Dust transaction to address: "+ oPut[0] + " and amount:"+amt+" BTC(s)")
+            return null;
+        }
+    }
 
-  sendTx = new Bitcoin.Transaction()
-// create the outputs
-  sentTot = 0.0
+    var changeAmt = txInputs.change;
+    if (changeAmt.compareTo(CENT) < 0 &&
+            changeAmt.compareTo(BigInteger.ZERO) > 0 &&
+            feeAmt.compareTo(minTxFee) < 0){
 
-  for(var i=0; i<toAddrs.length; i++){
-    adr = toAddrs[i];
-    amt = toAddrAmtMap[adr]
-    amountBigInt = num2sathoshiBigInt(amt)
-    toAddr = new Bitcoin.Address(adr)
-    sendTx.addOutput(toAddr, amountBigInt)
-    sentTot += amt
-// add the address so it is easy to see on the debug page
-    sendTx.outs[sendTx.outs.length-1].address = adr
-    if (isDust(sendTx.outs[sendTx.outs.length-1])){
-        alert("Dust transaction to address: "+ adr+ " and amount:"+amt+" BTC(s)")
+        var moveToFee = changeAmt.min(minTxFee.subtract(feeAmt));
+        changeAmt = changeAmt.subtract(moveToFee);
+        feeAmt = feeAmt.add(moveToFee);
+    }
+
+    if(changeAddress == ''){
+        if(from.length > 0){
+            changeAddress = from[0];
+        }else{
+            changeAddress = txInputs.outputs[0].address;
+        }
+    }
+
+    if (changeAmt.compareTo(BigInteger.ZERO)>0 ){
+        toAddr = new Bitcoin.Address(changeAddress);
+        var txOutput = Bitcoin.TransactionOut.create(toAddr, changeAmt);
+        if (!isDust(txOutput)){ //change added to fee if dust.
+            sendTx.addOutput(toAddr, changeAmt);
+            // add the address so it is easy to see on the debug page
+            sendTx.outs[sendTx.outs.length-1].address = changeAddress;
+        }else{
+            feeAmt = feeAmt.add(changeAmt);
+        }
+    }
+
+    // create the inputs
+    //   we have to do this in two loop instead of one loop, otherwise it does not work
+    //   all the inputs have to be created before they are signed.
+    //   The signing looks at the whole transaction.
+    hashType = 1   // SIGHASH_ALL
+    for(var i=0; i<txInputs.outputs.length; i++){
+        var txInput = txInputs.outputs[i];
+        var script = new Bitcoin.Script(Crypto.util.hexToBytes(txInput.script));
+        hash = hex2base64(endian(txInput.txHash));
+        tx = new Bitcoin.TransactionIn({
+            outpoint: {hash: hash, index: txInput.outputIndex},
+                                   script: script, sequence: 4294967295})
+        sendTx.addInput(tx)
+    }
+
+    // now sign the input in the second loop
+    //console.log(JSON.stringify(tra, '', '  '))
+    for(var i=0; i<txInputs.outputs.length; i++){
+        var txInput = txInputs.outputs[i];
+        script = sendTx.ins[i].script;
+        signHash = sendTx.hashTransactionForSignature(script, i, hashType)
+        //console.debug(signHash+'\n')
+        key = bigInt2ECKey(hex2bigInt(Keys[txInput.address]))
+        //pkh = script.simpleOutPubKeyHash()
+        sign = key.sign(signHash)
+        sign.push(parseInt(hashType, 10))
+        pk = key.getPub()
+        sendTx.ins[i].script = Bitcoin.Script.createInputScript(sign, pk)
+        // add this just so we can easily see what address was used to send from
+        sendTx.ins[i].address = txInput.address
+        sendTx.ins[i].value = satoshiToBtc(txInput.value);
+        //Add chain depth for calculating transaction priority.
+        sendTx.ins[i].block = txInput.block
+        sendTx.ins[i].confirmations = txInput.confirmations;
+    }
+    if (txTooBig (sendTx)){
+        alert("Unable to send bitcoins, transaction too big.")
         return null;
     }
-  }
-
-  var satoshiChange = num2sathoshi (returnTot);
-  var satoshiFee = num2sathoshi (feeFloat);
-  if (satoshiChange < CENT && satoshiChange > 0 && satoshiFee < minTxFee){
-    var moveToFee = Math.min (satoshiChange, minTxFee - satoshiFee);
-    satoshiChange -= moveToFee;
-    satoshiFee += moveToFee;
-    returnTot = sathoshi2num(satoshiChange)
-    feeFloat = sathoshi2num(satoshiFee)
-  }
-
-  if (satoshiChange>0 ){
-    amountBigInt = num2sathoshiBigInt(returnTot)
-    if (change == ''){
-      if (fromPairs.length > 0){ adr = fromPairs[0] }
-      else{ adr = tra[0].address }
+    var storageFee = lowPriorityOrLargeTransaction (sendTx) ? minTxFee.multiply(new BigInteger(''+(1+Math.floor(sendTx.serialize().length/1000)), 10)) : BigInteger.ZERO;
+    var subCentFee = containsSubCentOutput (sendTx) ? minTxFee : BigInteger.ZERO;
+    var minFee = storageFee.max(subCentFee).max(minTxFee);
+    if (feeAmt.compareTo(minFee) < 0){
+        alert("Fee amount too small, try:"+satoshiToBtc(minFee.intValue())+" BTC");
+        return null;
     }
-    else{ adr = change }
-//alert(JSON.stringify(tra, '', '  '))
-    toAddr = new Bitcoin.Address(adr)
-    var txOutput = Bitcoin.TransactionOut.create(toAddr, amountBigInt)
-    if (!isDust(txOutput)){ //change added to fee if dust.
-        sendTx.addOutput(toAddr, amountBigInt)
-        // add the address so it is easy to see on the debug page
-        sendTx.outs[sendTx.outs.length-1].address = adr
-    }else{
-        feeFloat += returnTot
-    }
-
-  }
-//console.log(JSON.stringify(sendTx, '', '  '))
-
-// create the inputs
-//   we have to do this in two loop instead of one loop, otherwise it does not work
-//   all the inputs have to be created before they are signed.
-//   The signing looks at the whole transaction.
-  hashType = 1   // SIGHASH_ALL
-  for(var i=0; i<tra.length; i++){
-    tr = tra[i]
-// the script can be provided as scriptPubKey or scriptHex
-    if (typeof(tr.scriptPubKey) == 'string'){
-      script = parseScript(tr.scriptPubKey)
-    }
-    if (typeof(tr.scriptHex) == 'string'){
-      script = parseScriptHex(tr.scriptHex)
-      script = parseScript(script)
-//console.debug('script is '+script+'\n')
-//console.debug('script is '+JSON.stringify(script,'','  ')+'\n')
-    }
-    hash = hex2base64(endian(tr.transHash))
-    tx = new Bitcoin.TransactionIn({outpoint: {hash: hash, index: tr.n},
-                                   script: script, sequence: 4294967295})
-    sendTx.addInput(tx)
-  }
-
-// now sign the input in the second loop
-//console.log(JSON.stringify(tra, '', '  '))
-  inCount = 0
-  for(var i=0; i<tra.length; i++){
-    script = sendTx.ins[inCount].script;
-    signHash = sendTx.hashTransactionForSignature(script, inCount, hashType)
-//console.debug(signHash+'\n')
-    key = bigInt2ECKey(hex2bigInt(Keys[tra[i].address]))
-    pkh = script.simpleOutPubKeyHash()
-    sign = key.sign(signHash)
-    sign.push(parseInt(hashType, 10))
-    pk = key.getPub()
-    sendTx.ins[inCount].script = Bitcoin.Script.createInputScript(sign, pk)
-// add this just so we can easily see what address was used to send from
-    sendTx.ins[inCount].address = tra[inCount].address
-    sendTx.ins[inCount].value = tra[inCount].value
-    //Add chain depth for calculating transaction priority.
-    sendTx.ins[inCount].block = tra[inCount].block
-    inCount += 1
-  }
-  if (txTooBig (sendTx)){
-      alert("Unable to send bitcoins, transaction too big.")
-      return null;
-  }
-  var storageFee = lowPriorityOrLargeTransaction (sendTx) ? (1+Math.floor(sendTx.serialize().length/1000)) * minTxFee : 0;
-  var subCentFee = containsSubCentOutput (sendTx) ? minTxFee : 0;
-  var minFee = Math.max (storageFee, subCentFee);
-  if (num2sathoshi(feeFloat) < minFee){
-      alert("Fee amount too small, try:"+sathoshi2num(minFee)+" BTC");
-      return null;
-  }
-//console.log(JSON.stringify(sendTx, '', '  '))
-
-//jd = JSON.stringify(sendTx,'','   ')
-//alert(jd)
-//showit(Bitcoin.Transaction.objectify([sendTx]))
-  alert("Fee is "+feeFloat+" BTC")
-  return sendTx;
-
+    alert("Fee is "+satoshiToBtc(feeAmt.intValue())+" BTC");
+    return sendTx;
 }
 
 // given an array of bitcoin addresses and an amount, return a list of
@@ -600,64 +772,80 @@ function makeTxObjBase(from, to, change, fee, onlyFromAddrs){
 //    while trying to use the given addresses before other address.
 //    Do you get what I mean; probably not. Just read the code :-)
 // we are also given a list of the addresses not to use in 'tha'
-function bitAddArr2transRefArr(baa, amount, tha, onlyFromAddrs){
-  var save, res, tot, i, t, ta
-  save = []
-  res = []
-  tot = 0.0
-// first sort the unspent transactions with the oldest first
-// but skip unconfirmed transactions; where block=0
-  for(i in Unspent){
-    t = Unspent[i]
-//    ta = t.address
-    if (t.block > 0){
-      save.push(t)
+// formerly bitAddArr2transRefArr
+function collectUnspentOutputs(fromAddrs, amount, toAddrs, onlyFromAddrs){
+    var eligibleOutputs = confirmedOutputs (Unspent);
+
+
+    var total = BigInteger.ZERO;
+    var secondaryOutputs = [];
+    var includedOutputs = [];
+    // try to pick from the given bitcoin addresses
+    for (var i=0; i<eligibleOutputs.length; i++){
+        var output = eligibleOutputs[i];
+        if (toAddrs.indexOf(output.address) != -1) continue; //Skip to-addr outputs.
+
+        if (fromAddrs.indexOf(output.address) != -1){ //found in from-addrs
+            includedOutputs.push(output);
+        }else{
+            secondaryOutputs.push(output);
+        }
     }
-  }
-  save.sort(compareBlockDesc)
-  // try to pick from the given bitcoin addresses
-  for (i in save){
-    t = save[i]
-    ta = t.address
-    if (baa.indexOf(ta)>=0){
-      res.push(t)
-      tot += parseFloat(t.value)
-      if (tot >= amount){ return [res, tot] }
+
+    var result = collectAmt(amount, includedOutputs);
+    if (result.isEnough || onlyFromAddrs) return result;
+    // now pick from the other addresses, since the given address did not have enough
+    includedOutputs = includedOutputs.concat(secondaryOutputs);
+    result = collectAmt(amount, includedOutputs);
+    if (!(result.isEnough)) return null;
+
+    // now remove any excess that we picked up
+    //   for example we needed to send 10, we picked up 1, 2, then 12, so we don't need
+    //   the 1 and 2 since 12 has enough. To remove them reverse the order and go through
+    //   until we have enough and any left after than can be removed.
+    var rOutputs = result.outputs.slice(0);
+    rOutputs.reverse()
+    var altResult = collectAmt(amount, rOutputs);
+    return altResult;
+}
+
+function confirmedOutputs (outputs){
+    var eligibleOutputs = [];
+
+    // first sort the unspent transactions with the oldest first
+    // but skip unconfirmed transactions; where block=0
+    for(var i=0; i<Unspent.length; i++){
+        var output = Unspent[i];
+        if (output.confirmations > 0){
+            eligibleOutputs.push(output);
+        }
     }
-  }
-  if (onlyFromAddrs) return [res, tot]
-  // now pick from the other addresses, since the given address did not have enough
-  for (i in save){
-    t = save[i]
-    ta = t.address
-    if (tha.indexOf(ta) >= 0){ continue; } // skip it if the address is in the don't use list
-    if (baa.indexOf(ta)<0){
-      res.push(t)
-      tot += parseFloat(t.value)
-      if (tot >= amount){ break }
+    //Sort by no. confirmations.
+    eligibleOutputs.sort(compareBlockDesc);
+    return eligibleOutputs;
+}
+/*
+* satoshiAmt - BigInteger, amount is expected to include the fee.
+*/
+function collectAmt (satoshiAmt, uOutputs) {
+    uOutputs.sort (compareBlockDesc);
+    var bufAmount = BigInteger.ZERO;
+    var bufOutputs = [];
+    for (var i=0; i<uOutputs.length; i++){
+        var output = uOutputs[i];
+        bufOutputs.push (output);
+        bufAmount = bufAmount.add(new BigInteger(''+output.value, 10));
+        if (bufAmount.compareTo(satoshiAmt) >= 0) break;
     }
-  }
-  if (tot < amount){ return 0 }
-  // now remove any excess that we picked up
-  //   for example we needed to send 10, we picked up 1, 2, then 12, so we don't need
-  //   the 1 and 2 since 12 has enough. To remove them reverse the order and go through
-  //   until we have enough and any left after than can be removed.
-  res = res.reverse()
-  tot = 0.0
-  enough = 0
-  i = 0
-  for (i=0; i<res.length; i++){
-    t = res[i]
-    tot += parseFloat(t.value)
-    if (tot >= amount){
-      i += 1
-      if (i<res.length){
-        res.splice(i)
-        break
-      }
+    var change = bufAmount.subtract(satoshiAmt);
+
+    var enough = true;
+    if (bufAmount.compareTo(satoshiAmt) < 0) {
+        enough = false;
+        change = BigInteger.ZERO;
     }
-  }
-  return [res, tot]
+
+    return {total: bufAmount, change: change, outputs: bufOutputs, isEnough: enough};
 }
 
 function compareBlockDesc(a, b){
@@ -706,7 +894,7 @@ function compareBlockDesc(a, b){
     }
 
     function homeCloseWalletAsk(){
-        var a = confirm('Close the EZ wallet?')
+        var a = confirm('Close the Brollet wallet?')
         if (! a){ return }
         homeCloseWallet()
     }
@@ -718,9 +906,9 @@ function compareBlockDesc(a, b){
         Seed = {}
         Unspent = {}
         Bal = {}
-        TotBal = 0
-        PendingBal = 0
-        ReadyBal = 0
+        TotBal = BigInteger.ZERO;
+        PendingBal = BigInteger.ZERO;
+        ReadyBal = BigInteger.ZERO;
         $('#homeMainForm').hide()
         $('#homeSendForm').hide()
         $('#homeReceiveForm').hide()
@@ -739,6 +927,7 @@ function compareBlockDesc(a, b){
         $('#homeSendFromEmailDiv').hide()
         $('#homeSendToDiv').show()
         UI.sendBy = 'address'
+        $("#homeSendSendBtn")[0].disabled = false;
     }
 
     function homeSendByEmailForm(){
@@ -748,6 +937,7 @@ function compareBlockDesc(a, b){
         $('#homeSendFromEmailDiv').show()
         $('#homeSendFromEmail').html(G.email)
         $('#homeSendToDiv').hide()
+        $("#homeSendSendBtn")[0].disabled = true;
         UI.sendBy = 'email'
     }
 
@@ -928,6 +1118,53 @@ function compareBlockDesc(a, b){
         $("#homeTransactions").hide();
     }
 
+    function multiSigSendShow () {
+        $("#homeMultiSigSend").show();
+        $("#homeMainForm").hide();
+
+        var addys = Object.keys(Keys);
+        var brolletKey = new Brollet.Key(Keys[addys[0]]);
+        $("#brolletPubKey").val(brolletKey.pubKeyAsHex());
+    }
+
+    function multiSigSendHide(){
+        $("#homeMainForm").show();
+        $("#homeMultiSigSend").hide();
+        $("#homeMultiSigSend input").val("");
+        $("#homeMultiSigSend textarea").val("");
+    }
+
+    function showComposeMultiSigRedeem(){
+        $("#multiSigCompose").show();
+        $("#homeMainForm").hide();
+    }
+
+    function hideComposeMultiSigRedeem(){
+        $("#homeMainForm").show();
+        $("#multiSigCompose").hide();
+    }
+
+    function showPubkeysMultiSig(){
+        displayMultisigPubkeys();
+        $("#multiSigPubkeys").show();
+        $("#homeMainForm").hide();
+    }
+
+    function hidePubkeysMultiSig(){
+        $("#homeMainForm").show();
+        $("#multiSigPubkeys").hide();
+        $("#multiSigPubkeys .pubkey-row").remove();
+    }
+
+    function showSignMultiSigRedeem(){
+        $("#multiSigRedeemSignHex").show();
+        $("#homeMainForm").hide();
+    }
+
+    function hideSignMultiSigRedeem(){
+        $("#homeMainForm").show();
+        $("#multiSigRedeemSignHex").hide();
+    }
     function homeReceiveForm(){
         $('#homeReceiveForm').show()
         $('#homeSendForm').hide()
@@ -1091,8 +1328,7 @@ function compareBlockDesc(a, b){
         }
         $('#homeBalanceLabel').html(WaitingIcon)
         $('#homeReceiveBalance').html(s)
-        addrStr = JSON.stringify(addrArr);
-        $.post('cgi-bin/unspent.py', {addresses: addrArr.join(",")}, homeUpdateBalanceFill, 'text')
+        $.post('cgi-bin/unspent.py', {addresses: addrArr.join(",")}, homeUpdateBalanceFill)
     }
 
     function updateAllSpentInfo (callback){
@@ -1130,19 +1366,19 @@ function compareBlockDesc(a, b){
               }
             }
             if ((tr.address == undefined) || (tr.address == '')){
-// try to find it from the Script
-// the script can be provided as scriptPubKey or scriptHex
+                // try to find it from the Script
+                // the script can be provided as scriptPubKey or scriptHex
               if (typeof(tr.scriptPubKey) == 'string'){
                 script = tr.scriptPubKey
               }
               if (typeof(tr.scriptHex) == 'string'){
                 script = parseScriptHex(tr.scriptHex)
                 res[i].scriptPubKey = script
-//console.debug('script is '+script+'\n')
-//console.debug('script is '+JSON.stringify(script,'','  ')+'\n')
+                //console.debug('script is '+script+'\n')
+                //console.debug('script is '+JSON.stringify(script,'','  ')+'\n')
               }
               sa = script.split(/ +/)
-//              addr = endian(sa[2])
+                //              addr = endian(sa[2])
               addr = sa[2]
               addr = pubKeyHash2bitAdd(addr)
               tr.address = addr
@@ -1156,41 +1392,8 @@ function compareBlockDesc(a, b){
 
     }
     function parseUnspentData(data){
-        var i, res, tr, script, sa, addr
-        res = JSON.parse(data, '', '  ')
-        Unspent = []
-        for(i in res){
-            tr = res[i]
-            if ((tr.value == undefined) || (tr.value == '')){
-              if (typeof(tr.sathoshi) == 'number'){
-                tr.value = sathoshi2num(tr.sathoshi)
-                res[i].value = tr.value
-              }
-            }
-            if ((tr.address == undefined) || (tr.address == '')){
-// try to find it from the Script
-// the script can be provided as scriptPubKey or scriptHex
-              if (typeof(tr.scriptPubKey) == 'string'){
-                script = tr.scriptPubKey
-              }
-              if (typeof(tr.scriptHex) == 'string'){
-                script = parseScriptHex(tr.scriptHex)
-                res[i].scriptPubKey = script
-//console.debug('script is '+script+'\n')
-//console.debug('script is '+JSON.stringify(script,'','  ')+'\n')
-              }
-              sa = script.split(/ +/)
-//              addr = endian(sa[2])
-              addr = sa[2]
-              addr = pubKeyHash2bitAdd(addr)
-              tr.address = addr
-              res[i].address = addr
-            }
-            if (Keys[tr.address] != undefined){
-                Unspent[i] = res[i] // save only if we have the private key
-            }
-        }
-        var x = JSON.stringify(res, '', '  ')
+        Unspent = data; //Should be Brollet.Unspent
+        var x = JSON.stringify(data, '', '  ')
         $('#debugUnspent').val(x)
     }
 
@@ -1201,39 +1404,24 @@ function compareBlockDesc(a, b){
     }
 
     function setBalance(){
-        var i, k, t, v
-        TotBal = 0.0
-        PendingBal = 0.0
-        ReadyBal = 0.0
+        TotBal = BigInteger.ZERO;
+        PendingBal = BigInteger.ZERO;
+        ReadyBal = BigInteger.ZERO;
         Bal = {}
         for(k in Keys){
-            Bal[k] = 0.0
+            Bal[k] = BigInteger.ZERO;
         }
-        for(i in Unspent){
-            t = Unspent[i]
-            k = t.address
-            if (k != undefined){
-                v = 0.0
-                if (typeof(t.value)=='string'){
-                    v = parseFloat(t.value)
-                }
-                if (typeof(t.value)=='number'){
-                    v = t.value
-                }
-                Bal[k] += v
-                Bal[k] = sathoshi2num(num2sathoshi(Bal[k]))
-                TotBal += v
-                if (t.block > 0){
-                    ReadyBal += v
-                }
-                else{
-                    PendingBal += v
-                }
+        for (var i=0; i<Unspent.length; i++){
+            var uOutput = Unspent[i]
+            var value = new BigInteger(''+uOutput.value,10);
+            Bal[uOutput.address] = Bal[uOutput.address].add(value);
+            if (uOutput.confirmations > 0){
+                ReadyBal = ReadyBal.add(value);
+            }else{
+                PendingBal = PendingBal.add(value);
             }
+            TotBal = TotBal.add(value);
         }
-        TotBal = sathoshi2num(num2sathoshi(TotBal))
-        PendingBal = sathoshi2num(num2sathoshi(PendingBal))
-        ReadyBal = sathoshi2num(num2sathoshi(ReadyBal))
     }
 
     function homeBalanceShow(){
@@ -1244,10 +1432,11 @@ function compareBlockDesc(a, b){
         $('#homeBalanceLabel').html(s)
         $('#homeReceiveBalance').html(s)
         $('#homeSendBalanceBefore').html(s)
+        $("#multiSigSendBalanceBefore").html(s);
         s = ''
         c = 0
         for(i in Keys){
-            b = Bal[i]
+            b = satoshiToBtc(Bal[i]);
             s = s +'<nobr><a href="javascript:addressShow(\''+i+'\')">'+i+' = '+b.toString()+'</a></nobr><br>'
             c += 1
         }
@@ -1265,15 +1454,10 @@ function compareBlockDesc(a, b){
     this.addressShow = addressShow
 
     function homeSetBalanceAfterSend(){
-        var bbal, sa, fee, ebal
-        bbal = TotBal
-        sa = parseFloat(removeWhiteSpace($('#homeSendAmount').val()))
-        fee = parseFloat(removeWhiteSpace($('#homeSendFee').val()))
-        if (isNaN(sa)){ sa = 0 }
-        if (isNaN(fee)){ fee = 0 }
-        ebal = bbal - sa - fee
-        ebal = sathoshi2num(num2sathoshi(ebal))
-        $('#homeSendBalanceAfter').html(ebal)
+        var fee = extractFee ($("#homeSendFee"));
+        var sendAmt = extractAmount ($("#homeSendAmount"));
+        var afterBalance = balanceMinus(fee.add(sendAmt));
+        $('#homeSendBalanceAfter').html (satoshiToBtc(afterBalance));
     }
 
     function homeSetRedeemInfo(privateKeyListener){
@@ -1348,8 +1532,30 @@ function compareBlockDesc(a, b){
         $('#homeRedeemBalance').html(s)
     }
 
+    function uOutputsToHtml (uOutputs) {
+        var total = BigInteger.ZERO;
+        var pending = BigInteger.ZERO;
+        var ready = BigInteger.ZERO;
+        for (var i=0; i<uOutputs.length; i++){
+            var uOutput = uOutputs[i];
+            var value = new BigInteger(''+uOutput.value,10);
+            if (uOutput.confirmations > 0){
+                ready = ready.add(value);
+            }else{
+                pending = pending.add(value);
+            }
+            total = total.add(value);
+        }
+        return bal2html(total, ready, pending);
+    }
+
     function bal2html(total, ready, pending){
-        s = '<nobr><pre>'+total+' = <font color=green title="Ready to spend">'+ready+' + <font color=red title="Pending confirmation">'+pending+'</pre></nobr>'
+        s = '<nobr><pre>' +
+            satoshiToBtc(total.intValue()) +
+            ' = <font color=green title="Ready to spend">' +
+            satoshiToBtc(ready.intValue()) +
+            ' + <font color=red title="Pending confirmation">' +
+            satoshiToBtc(pending.intValue()) + '</pre></nobr>'
         return s
     }
 
@@ -1432,7 +1638,6 @@ function compareBlockDesc(a, b){
         //var txJSON = TX.toBBE (transObj)
         var tx = transObj.serialize()
         var txs = {tx: bytes2hex (tx)};
-        var txj = JSON.stringify (txs)
         $.post ('cgi-bin/send.py', {tx: bytes2hex(tx)}, callback, 'text')
     }
 
@@ -1451,7 +1656,7 @@ function compareBlockDesc(a, b){
         txs = {tx: tx}
         txj = JSON.stringify(txs)
         alert(tx)
-        $.post('cgi-bin/send.py', {tx: tx}, handleSentTx(emailTx), 'text')
+        $.post('cgi-bin/send.py', {tx: tx}, handleSentTx(emailTx));
     }
 
     function transactionEmailSent (data){
@@ -1556,7 +1761,7 @@ function compareBlockDesc(a, b){
 
     function handleSentTx(emailTx){
         return function(data){
-            var res = JSON.parse(data, '', ' ')
+            var res = data;
             if (res.status == 'OK'){
                 alert('Sent\n'+res.message)
                 if (UI.sendBy == 'email'){
@@ -1591,32 +1796,27 @@ function compareBlockDesc(a, b){
     }
 
     function homeMakeTx(){
-        var amount, to, toad, from, changeAddr, fee, txo, tx, txJSON
-        to = removeWhiteSpace($('#homeSendTo').val())
-        if (to == ''){ alert('To Address must be given.'); return }
+        var toAddy = removeWhiteSpace($('#homeSendTo').val())
+        if (toAddy == ''){ alert('To Address must be given.'); return }
         try{
-          toad = Bitcoin.Address(to)
+            new Bitcoin.Address(toAddy);
+        }catch(err){
+            alert('To Address is not valid.'); return;
         }
-        catch(err){
-          alert('To Address is not valid.'); return;
-        }
-        amount = parseFloat(removeWhiteSpace($('#homeSendAmount').val()))
-        if (isNaN(amount)){ alert('Amount must be given.'); return }
-        to = to+' '+amount.toFixed(12);
-//        from = removeWhiteSpace($('#homeSendFrom').val())
-        from = ''
-        fee = parseFloat(removeWhiteSpace($('#homeSendFee').val()))
-        if (isNaN(fee)){ fee = 0; $('#homeSendFee').val('0') }
-        if (ReadyBal - amount - fee < 0){ alert('Insufficient funds.'); return }
+        amount = extractAmount($('#homeSendAmount'));
+        if (amount == null){ alert('Amount must be given.'); return }
+        fee = extractFee($('#homeSendFee'));
+        if (isNaN(fee)){ fee = BigInteger.ZERO; $('#homeSendFee').val('0') }
+        if (balanceMinus(amount.add(fee)) < 0){ alert('Insufficient funds.'); return }
         if ((G.pin != undefined) && (G.pin != '')){
           spin = prompt("Enter session pin: ");
           if (spin != G.pin){ return }
         }
         $('#debugTransaction').val('')
         $('#debugHexTransaction').val('')
-        changeAddr = ''
-        txo = makeTxObj(from, to, changeAddr, fee)
-//return(JSON.stringify(txo,'','   '))
+        var changeAddr = ''
+        txo = makeTxObj([], [[toAddy, amount]], changeAddr, fee)
+        //return(JSON.stringify(txo,'','   '))
         if (txo == undefined){ alert('Problem creating the transaction'); return }
         txJSON = TX.toBBE(txo);
         $('#debugTransaction').val(txJSON)
@@ -1624,10 +1824,10 @@ function compareBlockDesc(a, b){
         if (tx == undefined){ alert('Problem serializing the transaction'); return }
         tx = bytes2hex(tx)
         $('#debugHexTransaction').val(tx)
-//alert(tx)
-//  wireTx(tx)
-//  amount = parseFloat(amount) + parseFloat(fee)
-//  alert('sent '+amount+' '+G.units)
+        //alert(tx)
+        //  wireTx(tx)
+        //  amount = parseFloat(amount) + parseFloat(fee)
+        //  alert('sent '+amount+' '+G.units)
         return tx
     }
 
@@ -1860,11 +2060,11 @@ rand: "+rand+"\n\
         se = $('#advancedSecret').val()
         de = $('#advancedDecrypt').val()
         if (removeWhiteSpace(de) != ''){
-alert('not yet implemented'); return
-// for now we assume AES encryption
+            alert('not yet implemented'); return
+            // for now we assume AES encryption
         }
-// try to figure out the keys and convert them to hex
-// replace non-base64 characters with spaces
+        // try to figure out the keys and convert them to hex
+        // replace non-base64 characters with spaces
         se = se.replace(/[^a-zA-Z0-9\+\/=]+/g, ' ')
         ws = se.split(/\s+/)
         for(i=0;i<ws.length;i++){
@@ -2026,11 +2226,12 @@ alert('No keys found.')
         G = {};
         Keys = {}
         Seed = {}
-        Unspent = {}
+        //Holds list of [{address: .., txHash: ..., outputIndex: ..., value: (satoshis), scriptPubKey: ..., txIndex: ...}, .... ]
+        Unspent = [];
         Bal = {}
-        TotBal = 0
-        PendingBal = 0
-        ReadyBal = 0
+        TotBal = BigInteger.ZERO;
+        PendingBal = BigInteger.ZERO;
+        ReadyBal = BigInteger.ZERO;
         $('#advancedMainForm').hide()
         $('#advancedSendForm').hide()
         $('#advancedReceiveForm').hide()
@@ -2731,6 +2932,698 @@ alert('No keys found.')
             txGetUnspent();
     }
 
+    //Validates public key
+    function validPubKey () {
+        var pubKey = arguments[0];
+        if (typeof (pubKey) == "string"){
+            pubKey = Crypto.util.hexToBytes (pubKey);
+        }
+        var curve = getSECCurveByName("secp256k1").getCurve();
+        return ECPointFp.decodeFrom(curve, pubKey).isOnCurve();
+    }
+
+    function sortPubKeys (pubKeys) {
+        return pubKeys.sort(function(a, b){
+            a = Crypto.util.bytesToHex(a);
+            b = Crypto.util.bytesToHex(b);
+            if (a < b) return -1;
+            if (a > b) return 1;
+            return 0;
+        });
+    }
+
+    function createMultiSigRedeemScript (threshold, pubkeys) {
+        sortPubKeys(pubkeys);
+        var rs = Bitcoin.Script.createMultiSigOutputScript(threshold, pubkeys);
+        return rs;
+    }
+
+    /**
+    *  Creates a multisig address and script.
+    */
+    function createMultiSig (threshold, pubkeys){
+        var rs = createMultiSigRedeemScript (threshold, pubkeys);
+        var redeemScript = Crypto.util.bytesToHex(rs.buffer);
+
+        var address = new Bitcoin.Address.fromMultiSigScript(rs.buffer);
+
+        return {'address':address,'redeemScript':redeemScript};
+    }
+
+    function multiSigSendBalanceAfter () {
+        var amount = extractAmount ($("#multiSigSpendAmt"));
+        if (amount == null) return;
+        var fee = extractFee ($("#multiSigSpendFee"));
+        if (fee == null) return;
+        $("#multiSigSendBalanceAfter").html (
+            satoshiToBtc(balanceMinus (amount.add(fee))));
+    }
+
+    function extractPublicKey (elem) {
+        elem.removeClass ("invalid-input");
+        var pubKey = elem.val();
+        if (pubKey.length == 0) return -1;
+        if(!validPubKey (pubKey)) {
+            elem.addClass ("invalid-input");
+            return null;
+        }
+        return Crypto.util.hexToBytes(pubKey);
+    }
+
+    function extractNumSigsRequired (elem, pubKeysLength) {
+        elem.removeClass ("invalid-input");
+        var v = elem.val();
+        if (v.length == 0) return -1;
+        var nSigs = parseInt (v);
+        if (isNaN(nSigs) || nSigs < 1 || nSigs > pubKeysLength){
+            elem.addClass ("invalid-input");
+            return null;
+        }
+        return nSigs;
+
+    }
+
+    function clearMultiSigSendInfo () {
+        $("#multiSigSendRedeemScript").val("");
+        $("#multiSigSendAddress").val("");
+    }
+
+    function genBrolletRedeemScript () {
+        var pubkeys = [];
+        var validInputs = true;
+        $(".multisigsend-pubkey").each(function (i,e) {
+            var pubKey = extractPublicKey ($(e));
+            if (pubKey != -1 && pubKey != null)
+                pubkeys.push (pubKey);
+            else if (pubKey == null)
+                validInputs = false;
+        });
+
+        if (validInputs == false){
+            clearMultiSigSendInfo();
+            return;
+        }
+
+        var nSigs = extractNumSigsRequired ($("#sendSigsRequired"), pubkeys.length);
+        if (nSigs == null || nSigs == -1) validInputs = false;
+
+        if (validInputs == false){
+            clearMultiSigSendInfo();
+        } else {
+            var buf = createMultiSig (nSigs, pubkeys);
+            $("#multiSigSendRedeemScript").val(buf.redeemScript);
+            $("#multiSigSendAddress").val(buf.address.toString());
+        }
+
+    }
+
+    /*
+    * Will extract Bitcoin Address from jquery element.
+    *
+    * If element contains invalid address, then error class will be
+    * applied and null returned.
+    *
+    * allowblanks - if true, will return -1 if address is blank and
+    * will not apply error class. default: false
+    *
+    */
+    function extractAddress (elem, allowBlanks) {
+        if (allowBlanks == null) allowBlanks = false;
+        elem.removeClass ("invalid-input");
+        var addy = removeWhiteSpace (elem.val());
+        if (addy.length == 0){
+            if (allowBlanks){
+                return -1;
+            }
+            elem.addClass ("invalid-input");
+            return null;
+        }
+        try{
+            new Bitcoin.Address (addy);
+        }catch (error) {
+            elem.addClass ("invalid-input");
+            return null;
+        }
+        return addy;
+    }
+
+    function extractAmount (elem, applyErrorCls) {
+        if (applyErrorCls == null) applyErrorCls = true;
+        elem.removeClass ("invalid-input");
+        var amount = parseFloat(
+            removeWhiteSpace (elem.val())
+        );
+        if (isNaN (amount)) {
+            if (applyErrorCls){
+                elem.addClass ("invalid-input");
+            }
+            return null;
+        }
+        amount = btcToSatoshi (amount);
+        return new BigInteger(''+amount, 10);
+    }
+
+    /*
+    * Extracts the fee in btc from the element,
+    * and converting to BigInteger and satoshis.
+    */
+    function extractFee (elem) {
+        elem.removeClass ("invalid-input");
+        var fee = removeWhiteSpace (elem.val());
+        if (fee.length == 0){
+            elem.val(0.0);
+            return BigInteger.ZERO;
+        }
+        fee = parseFloat (fee);
+        if (isNaN(fee)){
+            elem.addClass ("invalid-input");
+            return null;
+        }
+        fee = btcToSatoshi (fee);
+        return new BigInteger(''+fee, 10);
+    }
+
+    function validSessionPin () {
+        if ((undefined != G.pin) && (G.pin != '')) {
+            var gPin = prompt ("Enter session pin: ");
+            if (gPin != G.pin) return false;
+            return true;
+        }
+        return true;
+    }
+
+    /*
+    * amt - in satoshis.
+    * returns remaining balance in satoshis.
+    */
+    function balanceMinus (amt){
+        return ReadyBal.subtract(amt);
+    }
+
+    function multiSigResponse (data){
+        var response = JSON.parse (data, '', ' ');
+
+        if (response.status == 'OK'){
+            $("#debugSendResult").val (response.message);
+            alert ("Sent\n"+response.message);
+            multiSigSendHide();
+            homeUpdateBalance();
+        }else{
+            $("#debugSendResult").val (response.error);
+            alert ("Error: "+response.error);
+        }
+    }
+
+    function multiSigSendTx () {
+        var address = extractAddress ($("#multiSigSendAddress"));
+        if (address == null) return;
+        var amount = extractAmount ($("#multiSigSpendAmt"));
+        if (amount == null) return;
+        var fee = extractFee ($("#multiSigSpendFee"));
+        if (fee == null) return;
+
+        if (balanceMinus (amount.add(fee)) < 0){
+            alert ("Not enough Bitcoins!");
+            return;
+        }
+
+        if (!validSessionPin()) return;
+
+        var tx = makeTxObj ([], [[address, amount]], "", fee);
+        if (tx == null || tx == undefined){
+            alert("Unable to create transaction.");
+            return;
+        }
+        var txSerial = tx.serialize();
+        if (txSerial == null || txSerial == undefined){
+            alert ("Unable to serialize transaction.");
+            return;
+        }
+        var txHex = Crypto.util.bytesToHex (txSerial);
+        $("#debugTransaction").val (TX.toBBE (tx));
+        $("#debugHexTransaction").val (Crypto.util.bytesToHex (tx.serialize()));
+        alert (JSON.stringify ({tx: txHex}));
+        $.post ("cgi-bin/send.py", {tx: txHex}, multiSigResponse,'text');
+    }
+
+    var multiSigAddyToScriptPubKey = function (addy) {
+        var s = new Bitcoin.Script();
+        var a = new Bitcoin.Address(addy);
+        s.writeOp (169); //OP_HASH160
+        s.writeBytes (a.fingerPrint);
+        s.writeOp (135); //OP_EQUAL
+        return Crypto.util.bytesToHex (s.buffer);
+    }
+
+
+    /*
+    * Assume that all tx inputs come from same
+    * multisig address.
+    *
+    * Establish a convention that the during the
+    * initial raw transaction creation, that each
+    * input has OP_0 redeemScript.
+    */
+    function signMultiSigTransaction (tx, ecKey) {
+
+        var redeemScriptBytes = tx.ins[0].script.chunks[tx.ins[0].script.chunks.length-1];
+
+        //Need to work with a 3 out of 3 multisig address.
+        var redeemScript = new Brollet.RedeemScript(redeemScriptBytes);
+        var hashType = 1   // SIGHASH_ALL
+
+        //Collect public keys from redeem-script.
+        var pubkeys = redeemScript.pubkeys;
+
+        //For each input validate signatures.
+        var sendTx = tx.clone();
+        var txInputs = tx.ins;
+
+        for (var i=0; i<txInputs.length; i++){
+            var sighash = sendTx.hashTransactionForSignature(redeemScript.script, i, hashType);
+
+            //Validates signatures.
+            new Brollet.MultiSigScript(txInputs[i].script.buffer, sighash);
+        }
+
+        sendTx = tx.clone();
+        txInputs = sendTx.ins;
+        var complete = true;
+        for (var i=0; i<txInputs.length; i++){
+            var currentScript = txInputs[i].script;
+            var sighash = sendTx.hashTransactionForSignature(redeemScript.script, i, hashType);
+            var signature = ecKey.sign(sighash);
+            signature.push(parseInt(1, 10));
+            var txScript = addSignatureToScript (sighash, signature, currentScript);
+            txInputs[i].script = txScript;
+            if (!signingComplete (sighash, txScript)) {
+                complete = false;
+            }
+        }
+
+        return {complete: complete, tx: sendTx};
+    }
+
+    function addSignatureToScript (hash, signature, script){
+        var multiSigScript = new Brollet.MultiSigScript(script.buffer, hash);
+        multiSigScript.addSignature(signature);
+        return multiSigScript.toScript();
+    }
+
+    function signingComplete (hash, script) {
+        var multiSigScript = new Brollet.MultiSigScript (script.buffer, hash);
+        return multiSigScript.isComplete();
+    }
+
+    function multiSigScriptFromFirstInput (tx){
+        var redeemScript = new Bitcoin.Script(tx.ins[0].script.chunks[tx.ins[0].script.chunks.length-1]);
+        var hashType = 1;
+        var txBuf = tx.clone();
+        var sighash = txBuf.hashTransactionForSignature(redeemScript, 0, hashType);
+        return new Brollet.MultiSigScript(txBuf.ins[0].script.buffer, sighash);
+    }
+
+    function signMultiSigRedeemSignTx(){
+        var tx = Bitcoin.Transaction.deserialize($("#multiSigRedeemSignTxHex").val());
+        var multiSigScript = multiSigScriptFromFirstInput (tx);
+        var brolletKey = keyToSign (multiSigScript.unsignedPubkeys());
+        var result = signMultiSigTransaction (tx, brolletKey.getECKey());
+        var txHex = Crypto.util.bytesToHex(result.tx.serialize());
+        $("#multiSigRedeemSignEncodedTx").val(txHex);
+        if (result.complete){
+            enableBroadcast($("#multiSigRedeemSignBroadcastBtn"), $("#multiSigRedeemSignBroadcastSpan"), txHex);
+        }
+    }
+
+    function signMultiSigRedeemTx(){
+        var txParams = extractMultiSigRedeemInputs();
+        if (txParams == null) return;
+
+        var s = Crypto.util.hexToBytes($("#multiSigRedeemRscript").val());
+        var script = new Bitcoin.Script(s);
+        var redeemScript = new Brollet.RedeemScript(script.buffer);
+        var brolletKey = keyToSign (redeemScript.pubkeys);
+        var eckey = brolletKey.getECKey();
+
+        $("#multiSigRedeemRscript").data("outputsRequester")
+        .addSingleListener(function (unspentOutputs){
+            if (!enoughBitcoins (txParams.outputs, txParams.feeAmt, unspentOutputs)){
+                $("#multiSigRedeemEncodedTx").val("Not enough bitcoins for transaction.");
+                return;
+            }
+            var tx = createMultiSigRedeemTx (txParams.rscript, txParams.outputs, txParams.changeAddress, txParams.feeAmt, unspentOutputs);
+            var result = signMultiSigTransaction (tx, eckey);
+            $("#multiSigRedeemEncodedTx").val(Crypto.util.bytesToHex(result.tx.serialize()));
+        })
+    }
+
+    function composeMultiSigRedeemTx(){
+        var txParams = extractMultiSigRedeemInputs();
+        if (txParams == null) return;
+        $("#multiSigRedeemRscript")
+        .data("outputsRequester").addSingleListener(function (unspentOutputs){
+            if (!enoughBitcoins (txParams.outputs, txParams.feeAmt, unspentOutputs)){
+                $("#multiSigRedeemEncodedTx").val("Not enough bitcoins for transaction.");
+                return;
+            }
+            var result = createMultiSigRedeemTx (txParams.rscript, txParams.outputs, txParams.changeAddress, txParams.feeAmt, unspentOutputs);
+            $("#multiSigRedeemEncodedTx").val(Crypto.util.bytesToHex(result.serialize()));
+        });
+    }
+
+    function extractMultiSigRedeemInputs(){
+        var script = new Bitcoin.Script(Crypto.util.hexToBytes($("#multiSigRedeemRscript").val()));
+        var rscript = new Brollet.RedeemScript(script.buffer);
+        var outputs = [];
+        var validOutputs = true;
+        $("#multiSigRedeemOutputs .control-group.seen").each(function (i,e){
+            e = $(e);
+            var addr = extractAddress(e.find(".btc-address"));
+            var amt = extractAmount(e.find(".btc-amount"));
+            if (addr == null || amt == null){
+                validOutputs = false;
+            }
+            outputs.push([addr, amt]);
+        });
+        if (validOutputs == false){
+            console.debug("Invalid outputs");
+            return null;
+        }
+
+        var changeAddress = extractAddress($("#multiSigRedeemChangeAddress"), true);
+        if (changeAddress == -1) changeAddress = rscript.getAddress().toString();
+        if (changeAddress == null){
+            console.debug("Invalid changeAddress");
+            return null;
+        }
+        var feeAmt = extractFee($("#multiSigRedeemFeeAmt"));
+        if(feeAmt == null){
+            console.debug("Invalid fee amount");
+            return null;
+        }
+        return {outputs: outputs, feeAmt: feeAmt, rscript: rscript, changeAddress: changeAddress};
+
+    }
+
+    function enoughBitcoins (txOutputs, fee, unspentOutputs){
+        var totalAmt = fee;
+        for (var i=0; i<txOutputs.length; i++){
+            totalAmt = totalAmt.add(txOutputs[i][1]);
+        }
+        var uOutputs = collectAmt (totalAmt, unspentOutputs);
+        return uOutputs.isEnough;
+    }
+
+    // redeemScript
+    // txOutputs - list of address, amount pairs. [ [addr1, BigInteger(val1)], [addr2, BigInteger(val2)]]
+    // changeAddress - one address to accept transaction change, if null use multisig address from redeemscript.
+    // fee - the fee amount to broadcast onto the network. BigInteger()
+    function createMultiSigRedeemTx (redeemScript, txOutputs, changeAddress, feeAmt, unspentOutputs) {
+        var redeemAddress = redeemScript.getAddress().toString();
+        if (!enoughBitcoins (txOutputs, feeAmt, unspentOutputs)) return null;
+
+        var totalAmt = feeAmt;
+        for (var i=0; i<txOutputs.length; i++){
+            totalAmt = totalAmt.add(txOutputs[i][1]);
+        }
+        var uOutputs = collectAmt (totalAmt, unspentOutputs);
+
+        var sendTx = new Bitcoin.Transaction();
+        hashType = 1 //SIGHASH_ALL
+        var inputs = uOutputs.outputs;
+        for (var i=0; i<inputs.length; i++){
+            var tx = {'hash': Crypto.util.bytesToBase64(Crypto.util.hexToBytes(endian(inputs[i].txHash)))};
+            sendTx.addInput(tx, inputs[i].outputIndex);
+        }
+
+        for (var i=0; i<txOutputs.length; i++){
+            var sendToAddy = new Bitcoin.Address(txOutputs[i][0]);
+            sendTx.addOutput (sendToAddy, txOutputs[i][1]);
+        }
+
+        var changeAmt = uOutputs.change;
+        if (changeAmt.compareTo(CENT) < 0 &&
+            changeAmt.compareTo(BigInteger.ZERO) > 0 &&
+            feeAmt.compareTo(minTxFee) < 0){
+
+            var moveToFee = changeAmt.min(minTxFee.subtract(feeAmt));
+            changeAmt = changeAmt.subtract(moveToFee);
+            feeAmt = feeAmt.add(moveToFee);
+        }
+
+        if (changeAmt.compareTo(BigInteger.ZERO)>0 ){
+            toAddr = new Bitcoin.Address(changeAddress);
+            var txOutput = Bitcoin.TransactionOut.create(toAddr, changeAmt);
+            if (!isDust(txOutput)){ //change added to fee if dust.
+                sendTx.addOutput(toAddr, changeAmt);
+                // add the address so it is easy to see on the debug page
+                sendTx.outs[sendTx.outs.length-1].address = changeAddress;
+            }else{
+                feeAmt = feeAmt.add(changeAmt);
+            }
+        }
+
+        var inputScript = new Bitcoin.Script();
+        inputScript.writeOp(Bitcoin.Opcode.map.OP_0);
+        inputScript.writeBytes(redeemScript.script.buffer);
+
+        var txInputs = sendTx.ins;
+        for (var i=0; i<txInputs.length; i++){
+            txInputs[i].script = inputScript;
+        }
+
+        return sendTx;
+    };
+
+    function correspondingKey(pubkey){
+        pubkey = Crypto.util.bytesToHex(pubkey);
+        var btcAddys = Object.keys(Keys);
+        for(var i=0; i<btcAddys.length; i++){
+            var brolletKey = new Brollet.Key(Keys[btcAddys[i]]);
+            if (brolletKey.pubKeyAsHex() == pubkey){
+                return brolletKey;
+            }
+        }
+        return null;
+    }
+
+    function keyToSign (pubkeys) {
+        for (var i=0; i<pubkeys.length; i++){
+            var pubkey = pubkeys[i];
+            var b = correspondingKey (pubkey);
+            if (b != null){
+                return b;
+            }
+        }
+        return null;
+    }
+    function hideGrandparent(elem){
+        var elem = $(elem.target);
+        elem.parent().parent().remove();
+    }
+
+    function addRedeemTxOutput() {
+        var elem = $(".output-row-base").clone();
+        elem = elem.removeClass("hide").removeClass("output-row-base").addClass("seen");
+        $("#multiSigRedeemOutputs").append(elem);
+        $(".hide-grandparent").click(hideGrandparent);
+        $(".hide-grandparent").click(composeMultiSigRedeemTx);
+        onInput($(".process-multisig-redeem-input"), composeMultiSigRedeemTx);
+    }
+
+    function disableBroadcast (btn, status){
+        $(btn[0]).data("txHex","");
+        btn[0].disabled = true;
+        status.html("");
+    }
+    function enableBroadcast (btn, status, txHex){
+        $(btn[0]).data("txHex", txHex);
+        btn[0].disabled = false;
+        status.html("Signing is complete, transaction can be sent onto network.");
+    }
+    function enableSigning (btn, status) {
+        btn[0].disabled = false;
+        status.html("You have a Private Key");
+    }
+
+    function disableSigning (btn, status){
+        btn[0].disabled = true;
+        status.html("");
+    }
+
+    function setSignaturesStatus (elem, nSignings, nNeeded){
+        var buf = "";
+        if(nSignings == 1){
+            buf = "Signed once, ";
+        }else{
+            buf = "Signed "+nSignings+" times, ";
+        }
+        var required = nNeeded - nSignings;
+        buf += "requires "+required+" more.";
+        elem.html(buf);
+    }
+
+    function inputsWithSameScript (tx, scriptBytes){
+        var matchHex = Crypto.util.bytesToHex(scriptBytes);
+        for (var i=0; i<tx.ins.length; i++){
+            var sBytes = tx.ins[i].script.chunks[tx.ins[i].script.chunks.length-1];
+            var hex = Crypto.util.bytesToHex(sBytes);
+            if(hex != matchHex) return false;
+        }
+        return true;
+    }
+
+    function arraysEqual(a, b){
+        if (a === b) return true;
+        if (a == null || b == null) return false;
+        if (a.length != b.length) return false;
+
+        for (var i = 0; i < a.length; ++i) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+    }
+
+    function pubkeyArraysEqual (a, b){
+        if (a.length != b.length) return false;
+
+        for(var i=0; i<a.length; i++){
+            var c = a[i];
+            var d = b[i];
+            if(!arraysEqual(c,d)) return false;
+        }
+        return true;
+    }
+
+    function inputsWithSameSignatures (tx, redeemScript){
+        var hashType = 1;
+        var txBuf = tx.clone();
+        var txInputs = txBuf.ins;
+        var current = null;
+
+        for (var i=0; i<txInputs.length; i++){
+            var sighash = txBuf.hashTransactionForSignature(redeemScript.script, i, hashType);
+            var multiSigScript = new Brollet.MultiSigScript(txInputs[i].script.buffer, sighash);
+            var arr = multiSigScript.signedPubkeys();
+            if (current == null) current = arr;
+            if (!pubkeyArraysEqual(current, arr)){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function broadcastMultisigRedeemTx () {
+        var txHex = $("#multiSigRedeemSignBroadcastBtn").data("txHex");
+        $.post ('cgi-bin/send.py', {tx: txHex}, function (data){
+            $("#multiSigRedeemSignBroadcastSpan").html("<span style='color: rgb(26, 26, 182)'>"+data.status+" "+data.message+"</span>");
+        });
+    }
+
+    function processMultisigRedeemTx() {
+        disableSigning ($("#multiSigRedeemTxSignBtn"), $("#multiSigRedeemTxPrivkey"));
+        disableBroadcast ($("#multiSigRedeemSignBroadcastBtn"), $("#multiSigRedeemSignBroadcastSpan"));
+        $("#multiSigRedeemSignEncodedTx").val("");
+
+        var txHex = $("#multiSigRedeemSignTxHex").val();
+        var tx = Bitcoin.Transaction.deserialize(txHex);
+        var redeemScriptBytes = tx.ins[0].script.chunks[tx.ins[0].script.chunks.length-1];
+        var redeemScript = new Brollet.RedeemScript(redeemScriptBytes);
+
+        if (!inputsWithSameScript(tx, redeemScriptBytes)){
+            $("#multiSigRedeemSignEncodedTx").val("Transaction contains inputs that originate from different scriptPubKeys.");
+            return;
+        }
+
+        if (!inputsWithSameSignatures(tx, redeemScript)){
+            $("#multiSigRedeemSignEncodedTx").val("Transaction contains inputs that have inconsistent signatures.");
+            return;
+        }
+        var address = redeemScript.getAddress().toString();
+        $("#multiSigRedeemSignAddress").val(address);
+        $("#multiSigRedeemSignTitle").html(redeemScript.nRequired+" out of "+redeemScript.nPubkeys+" Script");
+
+        var multiSigScript = multiSigScriptFromFirstInput (tx);
+        if (multiSigScript.isComplete()){
+            enableBroadcast ($("#multiSigRedeemSignBroadcastBtn"), $("#multiSigRedeemSignBroadcastSpan"), txHex);
+        }
+        setSignaturesStatus($("#multiSigRedeemSignNsigs"), multiSigScript.signatures.length, redeemScript.nRequired);
+        var brolletKey = keyToSign (multiSigScript.unsignedPubkeys());
+        if (brolletKey != null){
+            enableSigning ($("#multiSigRedeemTxSignBtn"), $("#multiSigRedeemTxPrivkey"));
+        }
+        $("#multiSigRedeemSignTxHex")
+        .data("outputsRequester", new Brollet.OutputsRequester([address]))
+        .data("outputsRequester")
+        .addSingleListener(function (outputs){
+            var txInputs = tx.ins;
+            var total = BigInteger.ZERO;
+            for (var i=0; i<txInputs.length; i++){
+                var outpoint = txInputs[i].outpoint;
+                var h = endian(Crypto.util.bytesToHex(Crypto.util.base64ToBytes(outpoint.hash)));
+                for (var j=0; j<outputs.length; j++){
+                    if (outputs[j].txHash == h && outputs[j].outputIndex == outpoint.index){
+                        total = total.add(new BigInteger(''+outputs[j].value, 10));
+                        break;
+                    }
+                }
+            }
+            $("#multiSigRedeemSignBalBefore").html(uOutputsToHtml(outputs));
+
+            var totalSent = BigInteger.ZERO;
+            var txOutputs = tx.outs;
+            var nOutputs = txOutputs.length;
+            $("#multiSigRedeemSignOutputs .control-group:nth-child(n+3)").remove();
+
+            for (var i=0; i<txOutputs.length; i++){
+                var addy = []
+                txOutputs[i].script.extractAddresses(addy);
+                var v = BigInteger.fromByteArrayUnsigned(txOutputs[i].value.slice(0).reverse());
+                totalSent = totalSent.add(v);
+                if (i==0){
+                    var elem = $("#multiSigRedeemSignOutputs .control-group:first-child");
+                    elem.find(".btc-amount").val(satoshiToBtc(v.intValue()));
+                    elem.find(".btc-address").val(addy);
+                }else{
+                    var elem = $(".sign-output-row-base").clone();
+                    elem.removeClass("sign-output-row-base hide");
+                    elem.find(".btc-amount").val(satoshiToBtc(v.intValue()));
+                    elem.find(".btc-address").val(addy);
+                    $("#multiSigRedeemSignOutputs").append(elem);
+                }
+            }
+
+            var feeAmt = total.subtract(totalSent);
+            $("#multiSigRedeemSignFee").val(satoshiToBtc(feeAmt.intValue()));
+            $("#multiSigRedeemSignTotal").val(satoshiToBtc(total.intValue()));
+        });
+
+    }
+    /**
+    * This will update redeem-multisig UI elements
+    * when the redeem-script is entered.
+    */
+    function processComposeRedeemScript() {
+        var s = Crypto.util.hexToBytes($("#multiSigRedeemRscript").val());
+        var script = new Bitcoin.Script(s);
+        var address = new Bitcoin.Address.fromMultiSigScript(script.buffer);
+        $("#multiSigRedeemAddress").val(address.toString());
+
+        var redeemScript = new Brollet.RedeemScript(script.buffer);
+        $("#multiSigRedeemTitle").html(redeemScript.nRequired+" out of "+redeemScript.nPubkeys+" Script");
+        var brolletKey = keyToSign (redeemScript.pubkeys);
+        if (brolletKey != null){
+            enableSigning ($("#multiSigRedeemSignBtn"), $("#multiSigRedeemPrivkey"));
+        }
+        $("#multiSigRedeemRscript")
+        .data("outputsRequester", new Brollet.OutputsRequester([address]))
+        .data("outputsRequester")
+        .addSingleListener(function (outputs){
+            var buf = uOutputsToHtml(outputs);
+            $("#multiSigRedeemBalance").html(buf);
+        });
+    }
+
     function cleanNumber(buf){
         buf = buf.split("").reverse().join("");
         var result = "";
@@ -2750,6 +3643,19 @@ alert('No keys found.')
             }
         }
         return result.split("").reverse().join("");
+    }
+
+    function displayMultisigPubkeys(){
+        var addys = Object.keys(Keys);
+        for(var i=0; i<addys.length; i++){
+            var btcAddy = addys[i]
+            var brolletKey = new Brollet.Key(Keys[btcAddy]);
+            var elem = "<tr class='pubkey-row'>"
+            elem += "<td>"+(i+1)+"</td>";
+            elem += "<td>"+brolletKey.pubKeyAsHex()+"</td>";
+            elem += "</tr>";
+            $("#pubkeys-table-body").append($(elem));
+        }
     }
     function placeTxnsInTable(data){
         var ds = {
@@ -2852,15 +3758,11 @@ alert('No keys found.')
 
         }
         param += addresses[0];
-        var baseUrl = 'http://blockchain.info/multiaddr?cors=true&active='+param;
-        $.ajax({
-            type: 'GET',
-            url: baseUrl,
-            success: function(i,j,k){
-                cback(i);
-            },
-            error: function(i,j,k){  console.log('err')}
-        })
+        var baseUrl = 'cgi-bin/transactions.py?addresses='+param;
+
+        $.get(baseUrl, {}, function (data){
+            cback(data);
+        });
     }
 
     function txOnChangeSec() {
@@ -3323,21 +4225,45 @@ alert(tx)
         $('#homeSendByAddressBtn').click(homeSendByAddressForm);
         $('#homeSendByEmailBtn').click(homeSendByEmailForm);
         $('#homeSendCodeDoneBtn').click(homeSendCodeDone);
-        $('#homeSendCancelBtn').click(homeSendCancel);
+        $('.homeSendCancelBtn').click(homeSendCancel);
         $('#homeSendSendBtn').click(homeSendTx);
         $("#showEmailCodeBtn").click(showEmailCode);
         $('#homeScanBtn').click(homeScan);
         $('#homeScanCloseBtn').click(homeScanClose);
         $("#homeTransactionsBtn").click(homeTransactionsShow);
-        $("#homeTransactionsBackBtn").click(homeTransactionsHide);
+        $(".homeTransactionsBackBtn").click(homeTransactionsHide);
+        $("#multiSigSendBtn").click(multiSigSendShow);
+        $(".multiSigCancelBtn").click(multiSigSendHide);
+        $("#multiSigSpendBtn").click(multiSigSendTx);
+        onInput($(".multisigsend-pubkey"), genBrolletRedeemScript);
+        onInput($("#sendSigsRequired"), genBrolletRedeemScript);
+        onInput($("#multiSigSpendAmt"), multiSigSendBalanceAfter);
+        onInput($("#multiSigSpendFee"), multiSigSendBalanceAfter);
+        onInput($("#multiSigRedeemRscript"), processComposeRedeemScript);
+        onInput($(".process-multisig-redeem-input"), composeMultiSigRedeemTx);
+
+        $("#multiSigRedeemComposeBtn").click(showComposeMultiSigRedeem);
+        $(".cancelMultiSigSpendBtn").click(hideComposeMultiSigRedeem);
+        $("#multiSigRedeemSignHexBtn").click(showSignMultiSigRedeem);
+        $(".cancelMultiSigSignBtn").click(hideSignMultiSigRedeem);
+
+        $("#multiSigRedeemAddOutput").click(addRedeemTxOutput);
+        $(".hide-grandparent").click(hideGrandparent);
+        $("#multiSigRedeemSignBtn").click(signMultiSigRedeemTx);
+        onInput($("#multiSigRedeemSignTxHex"), processMultisigRedeemTx);
+        $("#multiSigRedeemTxSignBtn").click(signMultiSigRedeemSignTx);
+        $("#multiSigRedeemSignBroadcastBtn").click(broadcastMultisigRedeemTx);
+
+        $("#multiSigPubkeysBtn").click(showPubkeysMultiSig);
+        $(".multiSigPubkeysHideBtn").click(hidePubkeysMultiSig);
         $('#homeReceiveBtn').click(homeReceiveForm);
-        $('#homeReceiveBackBtn').click(homeReceiveBack);
+        $('.homeReceiveBackBtn').click(homeReceiveBack);
         $('#homeRedeemBtn').click(homeRedeemForm);
-        $('#homeRedeemCancelBtn').click(homeRedeemCancel);
+        $('.homeRedeemCancelBtn').click(homeRedeemCancel);
         $('#homeRedeemNowBtn').click(homeRedeemNow);
         $('#homeRecoverBtn').click(homeRecoverForm);
         $('#homeRecoverNowBtn').click (homeRecoverNow)
-        $('#homeRecoverCancelBtn').click(homeRecoverCancel);
+        $('.homeRecoverCancelBtn').click(homeRecoverCancel);
         $('#homeReloadBalBtn').click(homeUpdateBalance);
 //        $('#homeSendShowBtn').click(homeSendShowTx);
         onInput($('#homeSendAmount'), homeSetBalanceAfterSend);

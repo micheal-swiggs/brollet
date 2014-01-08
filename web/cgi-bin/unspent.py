@@ -30,7 +30,56 @@ import urllib2 as url
 import json
 import logging
 
-logging.basicConfig(filename='../logs/debug.log', level=logging.DEBUG)
+# Functions from Electrum start
+__b58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+__b58base = len(__b58chars)
+
+def b58decode(v, length):
+    """ decode v into a string of len bytes."""
+    long_value = 0L
+    for (i, c) in enumerate(v[::-1]):
+        long_value += __b58chars.find(c) * (__b58base**i)
+
+    result = ''
+    while long_value >= 256:
+        div, mod = divmod(long_value, 256)
+        result = chr(mod) + result
+        long_value = div
+    result = chr(long_value) + result
+
+    nPad = 0
+    for c in v:
+        if c == __b58chars[0]: nPad += 1
+        else: break
+
+    result = chr(0)*nPad + result
+    if length is not None and len(result) != length:
+        return None
+
+    return result
+
+def bc_address_to_hash_160(addr):
+    bytes = b58decode(addr, 25)
+    return ord(bytes[0]), bytes[1:21]
+
+# Functions from electrum end.
+
+def address_to_script (addr):
+    addrtype, hash_160 = bc_address_to_hash_160(addr)
+    script = ''
+    if addrtype == 0:
+        script = '76a9'
+        script += '14'
+        script += hash_160.encode('hex')
+        script += '88ac'
+    elif addrtype == 5:
+        script = 'a9'
+        script += '14'
+        script += hash_160.encode('hex')
+        script += '87'
+    else:
+        raise
+    return script
 
 def endian(s):
   out = ''
@@ -40,7 +89,11 @@ def endian(s):
     i = i - 2
   return out
 
-print "Content-type: text/plain\n"
+
+logging.basicConfig(filename='../logs/debug.log', level=logging.DEBUG)
+
+
+print "Content-type: application/json;charset=UTF-8\n"
 
 fStorage = cgi.FieldStorage()
 try:
@@ -53,15 +106,15 @@ if "addresses" not in fStorage:
     res = {'status': 'Error', 'error':'No addresses specified'}
     print json.dumps(res)
     sys.exit()
-myaddresses = fStorage["addresses"].value.split(",")
 
-
-#print myaddresses
+addresses = fStorage["addresses"].value.split(",")
+scripts = [ address_to_script (addr) for addr in addresses ]
 
 try:
-  if len(myaddresses) < 1: print '{}'; sys.exit()
+    if len(addresses) < 1: print '{}'; sys.exit()
 except Exception:
-  print '{0}'; sys.exit()
+    print '{0}'; sys.exit()
+
 
 
 bex = "http://blockchain.info/unspent?address=";
@@ -70,35 +123,28 @@ bex = "http://blockchain.info/unspent?address=";
 #ba = "1M6MHpwJ4MsLo6GTGxH2DVets87WKg8L3B"
 #myaddresses = [ba]
 
-ba = "&address=".join(myaddresses)
+ba = "&address=".join(addresses)
 #print ba
 try:
-  res = url.urlopen(bex+ba)
+    res = url.urlopen(bex+ba)
 except Exception:
-  print '{}'; sys.exit()
+    print '{}'; sys.exit()
 data = res.read()
-#print data
-#sys.exit()
 res = json.loads(data)
 uo = res['unspent_outputs']
+trans = []
 
-trans = {}
-for r in uo:
-  i = r
-# for now set blocknumber to confirmations; TODO - figure out block number
-  block = i['confirmations']
+for output in uo:
+    #Use incoming addresses to determine which addresses are to which outputs.
+    #Reattach addresses.
+    idex = scripts.index(output['script'])
+    output['address'] = addresses[idex]
+    output['txHash'] = endian (output['tx_hash'])
+    output['txIndex'] = output['tx_index']
+    output['outputIndex'] = output['tx_output_n']
+    output['scriptPubKey'] = output['script']
+    trans.append(output)
 
-  i['tx_hash'] = endian(i['tx_hash'])
+print json.dumps(trans)
 
-  tr = i['tx_hash']+' '+str(i['tx_output_n'])
-  trans[tr] = {'address': '', 'sathoshi': i['value'], 'scriptHex': i['script'], 'transHash': i['tx_hash'], 'n': i['tx_output_n'], 'block': block}
-
-#sys.exit()
-
-unspent = {}
-for t, v in trans.items():
-    if v != 'spent':
-        unspent[t] = v
-print json.dumps(unspent)
-#print unspent
 

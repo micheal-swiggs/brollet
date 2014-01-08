@@ -1,9 +1,9 @@
 Electrum - lightweight Bitcoin client
 
 Licence: GNU GPL v3
-Author: thomasv@gitorious
+Author: thomasv@bitcointalk.org
 Language: Python
-Homepage: http://electrum.ecdsa.org/
+Homepage: http://electrum.org/
 
 
 == INSTALL ==
@@ -26,19 +26,20 @@ https://en.bitcoin.it/wiki/Electrum
 == HOW OFFICIAL PACKAGES ARE CREATED ==
 
 python mki18n.py
-pyrcc4 icons.qrc -o lib/icons_rc.py
+pyrcc4 icons.qrc -o gui/qt/icons_rc.py
 python setup.py sdist --format=zip,gztar
 
 On Mac OS X:
 
   # On port based installs
   sudo python setup-release.py py2app
-  # On brew installs
-  ARCHFLAGS="-arch i386 -arch x86_64" sudo /usr/bin/python setup-release.py py2app --includes sip
 
-  sudo hdiutil create -fs HFS+ -volname "Electrum" -srcfolder dist/Electrum.app dist/electrum-v0.61-macosx.dmg
+  # On brew installs
+  ARCHFLAGS="-arch i386 -arch x86_64" sudo python setup-release.py py2app --includes sip
+
+  sudo hdiutil create -fs HFS+ -volname "Electrum" -srcfolder dist/Electrum.app dist/electrum-VERSION-macosx.dmg
 
 
 == BROWSER CONFIGURATION ==
 
-see http://ecdsa.org/bitcoin_URIs.html
+See http://electrum.org/bitcoin_URIs.html
