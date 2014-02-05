@@ -62,4 +62,29 @@ legend {
     color: rgb(28, 116, 28);
 }
 
+.span5.no-margin-left{
+    margin-left: 0;
+}
+
+input.invalid-input{
+    border-color: rgb(255, 126, 126);
+    outline-color: rgb(255, 126, 126);
+}
+input.text-right{
+    text-align: right;
+}
+.invisible{
+    visibility: hidden;
+}
+ul.breadcrumb.weak-breadcrumb{
+    background-image: none;
+    border: none;
+}
+.breadcrumb a:hover{
+    cursor: pointer;
+}
+.pubkeys-table{
+    word-break: break-word;
+}
+.pubkeys-table td:first-child{ width: 20px;}
 

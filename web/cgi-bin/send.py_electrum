@@ -17,7 +17,8 @@ def readConf():
   o = json.loads(c)
   return o
 
-print "Content-type: text/plain\n"
+
+print "Content-type: application/json;charset=UTF-8\n"
 
 fStorage = cgi.FieldStorage()
 try:
@@ -48,7 +49,7 @@ server = conf.get('electrumserver', 'electrum.bysh.me')
 # Now send the transaction
 os.chdir('cgi-bin/electrum')
 pyt = sys.executable
-cmd = pyt+' electrum -w electrum.dat -s '+server+':50001:t sendtx '+tx
+cmd = pyt+' electrum sendrawtransaction '+tx
 
 #res = {'status':'OK', 'tid':'abc '+cmd}; print json.dumps(res); sys.exit()
 

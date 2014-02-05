@@ -7,7 +7,6 @@
 
 import cgi
 import sys
-import os
 import json
 import re
 import urllib2
@@ -15,7 +14,7 @@ import logging
 
 logging.basicConfig(filename='../logs/debug.log', level=logging.DEBUG)
 
-print "Content-type: text/plain\n"
+print "Content-type: application/json;charset=UTF-8\n"
 
 fStorage = cgi.FieldStorage()
 try:
