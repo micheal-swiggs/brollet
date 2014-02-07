@@ -1,5 +1,16 @@
 #!/bin/bash
 
+function brollet_pid {
+    val=`ps -ef | grep 'python ../webServer' | grep -v grep | awk '{print $2}'`;
+    size=${#val}
+    local result=$val
+    if [ $size -eq 0 ]
+    then
+        local result=-1
+    fi
+    echo $result
+}
+
 function show_commands {
     echo "    start [port-number]"
     echo "    stop"
@@ -23,11 +34,15 @@ fi
 
 if [ $1 == "start" ]
 then
-    check_log_dir
-    ./httpd.sh $2 2>> logs/web.log &
+    if [ $(brollet_pid) -lt 0 ]
+    then
+	check_log_dir
+	./httpd.sh $2 2>> logs/web.log &
+    fi
 elif [ $1 == "stop" ]
 then
-    kill `ps -ef | grep 'python ../webServer' | grep -v grep | awk '{print $2}'`
+    bid=$(brollet_pid)
+    kill `brollet_pid`
 elif [ $1 == "clean" ]
 then
     rm logs/web.log
