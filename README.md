@@ -15,7 +15,7 @@ A secure, deterministic, online and offline browser wallet.
 
 * Brollet source code is freely available and completely under your control. No dependancy on a 3rd party to host your online wallet.
 
-You can try it out here: http://brollet.org:9696
+You can try it out here: [https://brollet.org](https://brollet.org)
 
 #Installation
 
