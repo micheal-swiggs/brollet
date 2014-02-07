@@ -40,7 +40,7 @@ Make sure your system has Python installed.
 
 Open a command prompt window
 ```
-cd ew
+cd brollet
 ```
 
 Edit the httpd.bat file to set the path to your python.exe
