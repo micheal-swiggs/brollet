@@ -1,6 +1,8 @@
 Brollet
 ==
 
+**Try it out** here [https://brollet.org](https://brollet.org) and join the [discussion](https://bitcointalk.org/index.php?topic=454000.0).
+
 A secure, deterministic, online and offline browser wallet.
 
 * Brollet can be run on your local PC or Mac, but does not require downloading the blockchain to send or receive bitcoins.
@@ -15,7 +17,7 @@ A secure, deterministic, online and offline browser wallet.
 
 * Brollet source code is freely available and completely under your control. No dependancy on a 3rd party to host your online wallet.
 
-You can try it out here: [https://brollet.org](https://brollet.org)
+
 
 #Installation
 
