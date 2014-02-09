@@ -34,6 +34,14 @@ _You_ will then click on the `New Redeemscript` button found on the home page. T
 
 _Now_ send some bitcoins to your multisignature address. In this case 0.01 Bitcoins were sent to 3NAhQbKxDDGzfy8i1ssAWgePZfYkpsxKGA .
 
+# Spending from multisig address
+
+_Open_ up Multisignature Spend page by clicking `Spend` on the home page. You will then paste the redeem-script. Decide where to send the bitcoins. Brollet will then ask you to sign the transaction, click `Sign`.
+
+You will then see the hex form of the transaction in `Encoded Transaction`. Make a copy of this.
+
+![spend page](/docs/images/spend.jpg)
+
 * * *
 
 **Donations are welcome:** 3Q1kpuG9ewSa1Sj7gK9NSJGdrsf2LEL7Sx (multisignature address!)
