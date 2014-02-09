@@ -32,7 +32,7 @@ _You_ will then click on the `New Redeemscript` button found on the home page. T
 
 ![redeem-script page](/docs/images/redeemscript.jpg)
 
-_Now_ send some bitcoins to your multisignature address. In this case 0.01 Bitcoins were sent to 3NAhQbKxDDGzfy8i1ssAWgePZfYkpsxKGA .
+_Now_ send some bitcoins to your multisignature address. In this case 0.01 Bitcoins was sent to 3NAhQbKxDDGzfy8i1ssAWgePZfYkpsxKGA .
 
 # Spending from multisig address
 
@@ -53,11 +53,3 @@ Congratulations on your first Multisignature transaction!
 * * *
 
 **Donations are welcome:** 3Q1kpuG9ewSa1Sj7gK9NSJGdrsf2LEL7Sx (multisignature address!)
-
-0427daf910ec09dea5fd0ced5d2f0fe8c07eabef12f909e7d64da526edd10be8a5e9182b9c0c0f36584b4815c89cf4d8d3163643861342244b026933a723926e98
-04d599b7ddcfbfa67cbedd78131ca8ee6c8955f644b9e5c38659a6761b91f5605c81d7baa2da6e5d28f2598aabf4bb91631b382e54a007c671d77e084fa2785f1a
-04be4557a1009fd8f85ccf822314ac13d2ff7b40b60d260652ceac7a1e1f718904f989b9891a2493da127f94fad42b7c6d1fa3c4fd577982186d88cb22705f7f3c
-
-53410427daf910ec09dea5fd0ced5d2f0fe8c07eabef12f909e7d64da526edd10be8a5e9182b9c0c0f36584b4815c89cf4d8d3163643861342244b026933a723926e984104be4557a1009fd8f85ccf822314ac13d2ff7b40b60d260652ceac7a1e1f718904f989b9891a2493da127f94fad42b7c6d1fa3c4fd577982186d88cb22705f7f3c4104d599b7ddcfbfa67cbedd78131ca8ee6c8955f644b9e5c38659a6761b91f5605c81d7baa2da6e5d28f2598aabf4bb91631b382e54a007c671d77e084fa2785f1a53ae
-
-3NAhQbKxDDGzfy8i1ssAWgePZfYkpsxKGA
