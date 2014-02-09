@@ -52,4 +52,4 @@ Congratulations on your first Multisignature transaction!
 
 * * *
 
-**Donations are welcome:** 3Q1kpuG9ewSa1Sj7gK9NSJGdrsf2LEL7Sx (multisignature address!)
+**Donations are welcome:** 3Q1kpuG9ewSa1Sj7gK9NSJGdrsf2LEL7Sx
