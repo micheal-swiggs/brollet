@@ -44,9 +44,9 @@ You will then see the hex form of the transaction in `Encoded Transaction`. Make
 
 _Next_ open up the Multisignature sign page. Enter the transaction hex from the previous step. You will be able to see the transaction details. Sign the transaction again resulting in 2 of 3 required signatures.
 
-Copy the transaction hex from the `Encoded Transaction` field into the `Transaction Hex` field. You should see that the transaction only requires one more signing. Once you have signed the third time brollet will ask you to broadcast the transaction.
-
 ![sign page](/docs/images/sign.jpg)
+
+Copy the transaction hex from the `Encoded Transaction` field into the `Transaction Hex` field. You should see that the transaction only requires one more signing. Once you have signed the third time brollet will ask you to broadcast the transaction.
 
 Congratulations on your first Multisignature transaction!
 
