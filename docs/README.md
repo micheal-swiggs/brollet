@@ -24,7 +24,7 @@ First sign into brollet using your email and super strong password. This will br
 
 Next click on the `Public Keys` button and since we will be doing a 3 out-of 3 transaction copy the first 3 public keys.
 
-![pubkey page](/docs/images/pubkeys.png)
+![pubkey page](/docs/images/pubkeys.jpg)
 
 * * *
 
