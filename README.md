@@ -55,5 +55,6 @@ To change the settings from the Settings page you need to first edit the file
    web/cgi-bin/config.json
 and set the "password" field.
 
+* * *
 
 **Donations are welcome:** 3Q1kpuG9ewSa1Sj7gK9NSJGdrsf2LEL7Sx (multisignature address!)
