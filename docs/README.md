@@ -18,15 +18,15 @@ Spending bitcoins from the multisignature address requires 3 steps:
 
 # Steps
 
-First sign into brollet using your email and super strong password. This will bring you to the **home page**.
+_First_ sign into brollet using your email and super strong password. This will bring you to the **home page**.
 
 ![home page](/docs/images/balance.png)
 
-Next click on the `Public Keys` button and since we will be doing a 3 out-of 3 transaction copy the first 3 public keys.
+_Next_ click on the `Public Keys` button and since we will be doing a 3 out-of 3 transaction copy the first 3 public keys.
 
 ![pubkey page](/docs/images/pubkeys.jpg)
 
-You will then click on the `New Redeemscript` button found on the home page. Then enter the 3 public keys and for `No. Signatures` enter 3. You will now be able to see the Multisignature address and the redeem-script. Make a copy (and save it) of the redeem-script. You also have the option of sending bitcoins from Brollet.
+_You_ will then click on the `New Redeemscript` button found on the home page. Then enter the 3 public keys and for `No. Signatures` enter 3. You will now be able to see the Multisignature address and the redeem-script. Make a copy (and save it) of the redeem-script. You also have the option of sending bitcoins from Brollet.
 
 > Notice that `Your Brollet Public Key` is automatically filled in!
 
