@@ -32,7 +32,7 @@ _You_ will then click on the `New Redeemscript` button found on the home page. T
 
 ![redeem-script page](/docs/images/redeemscript.jpg)
 
-_Now_ send some bitcoins to your multisignature address. In this case 0.01 Bitcoins were sent to `3NAhQbKxDDGzfy8i1ssAWgePZfYkpsxKGA`.
+_Now_ send some bitcoins to your multisignature address. In this case 0.01 Bitcoins were sent to 3NAhQbKxDDGzfy8i1ssAWgePZfYkpsxKGA .
 
 * * *
 
