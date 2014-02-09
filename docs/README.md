@@ -19,6 +19,7 @@ Spending bitcoins from the multisignature address requires 3 steps:
 # Steps
 
 1. Sign into brollet using your email and super strong password. This will bring you to the balance page.
+
 ![home page](/docs/images/balance.png)
 
 
